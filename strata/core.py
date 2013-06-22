@@ -1,12 +1,29 @@
 # -*- coding: utf-8 -*-
 
+from utils import camel2under
+
+_KNOWN_VARS = {}
+
 
 class Config(object):
     pass  # TODO
 
 
+class VariableMeta(type):
+    def __new__(cls, name, base, attrs):
+        if not attrs.get('name'):
+            attrs['name'] = camel2under(name)
+        inst = super(VariableMeta, cls).__new__(cls, name,  base, attrs)
+
+        if inst.name in _KNOWN_VARS:
+            print 'config variable collision: %r' % inst.name
+        _KNOWN_VARS[inst.name] = inst
+        return inst
+
+
 class Variable(object):
     "default Variable class description docstring."
+    __metaclass__ = VariableMeta
 
     name = None
     var_type = None  # TODO?
@@ -31,3 +48,10 @@ class FileValue(object):
     def __init__(self, value, file_path):
         self.value = value
         self.file_path = file_path
+
+
+if __name__ == '__main__':
+    class MyVar(Variable):
+        pass
+
+    print MyVar.name
