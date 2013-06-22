@@ -60,3 +60,11 @@ appropriate for a given environment. Examples of environments would be
 development, test, load-testing, and production; in the test
 environment, a 'mocks' Layer might be appropriate, but not in
 production.
+
+
+TODO
+====
+
+* how to avoid global state? ConfigSpec?
+* built-in vs. overridable variables?
+* automatic listing of Layer providing?
