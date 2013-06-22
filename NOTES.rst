@@ -10,11 +10,6 @@ typically at application start-up time, as opposed to deployment-time
 configuration, or configuration management/versioning
 (puppet/cfengine-like things).
 
-Example: a hypothetical command-line application needs a working
-directory to perform its operations. This working directory can be
-specified on the command-line as an argument, in an INI file in the
-current working directory (if one exists), a home-folder "dotfile",
-and a default generated based on hostname and username.
 
 Motivation
 ----------
@@ -28,15 +23,24 @@ to exposing an interface to those complexities, the inherent flatness
 of an interface often results in a projection that is increasingly
 unintuitive for users and unsupportable for developers.
 
+Here's a very basic example: a hypothetical command-line application
+needs a working directory to perform its operations. This working
+directory can be specified on the command-line as an argument, in an
+INI file in the current working directory (if one exists), a
+home-folder "dotfile", and a default generated based on hostname and
+username.
+
 Strata addresses configuration holistically, providing a framework for
 negotiating a deterministic and introspective union of an
 application's interface implementation.
+
 
 Design
 ------
 
 To achieve the goals above, Strata introduces a three-dimensional
-model for decomposing software configuration:
+model for decomposing software configuration. The three dimensions
+are:
 
 1. Variables
 2. Layers
