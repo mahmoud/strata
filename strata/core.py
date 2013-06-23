@@ -21,6 +21,17 @@ class Config(object):
 
         self.deps = {}
         self.results = {}
+        self.known_vars = _KNOWN_VARS.keys()  # TODO: ?
+
+        self._build_graph()
+        self._process()
+
+    def _build_graph(self):
+        # TODO: topological sort
+        pass
+
+    def _process(self):
+        pass
 
 
 class VariableMeta(type):
