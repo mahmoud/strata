@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from strata.core import Variable, Layer, Config
+import sys  # TODO: haaaack
+from os.path import abspath, dirname as dn
+sys.path.append(dn(dn(dn(abspath(__file__)))))
+
+
+#from strata.config import Config
+from strata.core import Variable, Layer
 
 
 class VarA(Variable):
