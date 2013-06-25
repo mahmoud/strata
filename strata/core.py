@@ -69,6 +69,15 @@ class Provider(object):
         except:
             raise ValueError('unsupported provider type: %r' % self.func)
 
+    def __repr__(self):
+        cn = self.__class__.__name__
+        try:
+            layer_cn = self.layer.__class__.__name__
+            func_sig = '%s(%s)' % (self.var_name, ', '.join(self.dep_names))
+            return '%s(%s.%s)' % (cn, layer_cn, func_sig)
+        except:
+            return super(Provider, self).__repr__()
+
 
 class FileValue(object):
     def __init__(self, value, file_path):
