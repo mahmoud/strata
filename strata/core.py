@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from utils import camel2under
+from utils import camel2under, get_arg_names
 
 _KNOWN_VARS = {}
 
@@ -46,6 +46,28 @@ class Layer(object):
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
+
+
+class Provider(object):
+    """\
+    Used internally to represent a single Layer instance's implementation
+    of a single Variable. (the intersection of Layer and Variable).
+    """
+
+    def __init__(self, layer, var_name, func=None):
+        self.layer = layer
+        self.var_name = var_name
+        self.func = func
+        if self.func is None:
+            try:
+                self.func = getattr(layer, var_name)
+            except AttributeError:
+                msg = 'Layer %r does not provide %r' % (layer, var_name)
+                raise ValueError(msg)
+        try:
+            self.dep_names = get_arg_names(self.func)
+        except:
+            raise ValueError('unsupported provider type: %r' % self.func)
 
 
 class FileValue(object):
