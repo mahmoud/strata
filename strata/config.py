@@ -31,7 +31,7 @@ class Unsatisfied(DepResult):
 
 
 class Config(object):
-    def __init__(self, **kwargs):
+    def __init__(self, env=None, **kwargs):
         self.env = kwargs.pop('env', None)
         if self.env is None:
             self.env = detect_env()  # TODO: member function?
@@ -40,7 +40,6 @@ class Config(object):
 
         self.deps = {}
         self.results = {}
-        self.known_vars = _KNOWN_VARS.keys()  # TODO: ?
 
         self._satisfied = {'config': self,
                            'kwargs': self}
@@ -48,29 +47,75 @@ class Config(object):
         self._pruned = {}
         self._var_provider_map = vpm = {}
         self._var_consumer_map = vcm = {}
-        for layer in self._layers:
-            for name in dir(layer):
-                func = getattr(layer, name)
-                if not callable(func) or '__' in name:
+
+        all_vars = set(sum([l.layer_provides().keys() for l in self._layers], []))
+        fut_all_vars = _KNOWN_VARS.keys()
+        #for layer in self._layers:  # TODO: tmp way to build variable list
+        #    for name in dir(layer):  # (it should come from VariableMeta)
+        #        func = getattr(layer, name)
+        #        if callable(func) and not name.startswith('__') \
+        #           and name not in all_vars:
+        #            all_vars.append(name)
+
+        for var_name in all_vars:
+            for layer in self._layers:  # TODO: refactor
+                try:
+                    func = layer.layer_provides()[var_name]
+                except KeyError:
                     continue
                 arg_names = get_arg_names(func)
-                vpm.setdefault(name, []).append((layer, arg_names))
+                vpm.setdefault(var_name, []).append((layer, arg_names))
                 for an in arg_names:
-                    vcm.setdefault(an, []).append((layer, name))
-        self._vcm_expanded = vcmx = {}
+                    vcm.setdefault(an, []).append((layer, var_name))
         """fulfill the item such that its provision would eliminate the most
         variables that would have to be used"""
 
-        for var, consumers in vcm.items():
-            to_proc = []
-            for layer, name in consumers:
-                subdeps = vcm.get(name, [])
-                vcmx.setdefault(var, set()).update()
+        # expand out all deps
+        stacked_arg_map = {}  # args across all layers
+        for var, layer_args in vpm.items():
+            stacked_args = sum([list(args) for _, args in layer_args], [])
+            stacked_arg_map[var] = set(stacked_args)
+
+        recursive_arg_map = {}
+        for var, stacked_args in stacked_arg_map.items():
+            to_proc, rec_args, i = [var], set(), 0
+            while to_proc:
+                i += 1  # TODO: better circdep handlin
+                if i > 50:
+                    raise Exception('circular deps, I think: %r' % var)
+                cur = to_proc.pop()
+                cur_stargs = stacked_arg_map.get(cur, [])
+                to_proc.extend(cur_stargs)
+                rec_args.update(cur_stargs)
+            recursive_arg_map[var] = rec_args
+
+        sorted_deps = toposort(recursive_arg_map)
         import pdb;pdb.set_trace()
         self._process()
 
     def _process(self):
         pass
+
+
+def toposort(dep_map):
+    "expects a dict of {item: set([deps])}"
+    ret, dep_map = [], dict(dep_map)
+    if not dep_map:
+        return []
+    extras = set.union(*dep_map.values()) - set(dep_map)
+    dep_map.update([(k, set()) for k in extras])
+    remaining = dict(dep_map)
+    while remaining:
+        cur = set([item for item, deps in remaining.items() if not deps])
+        if cur:
+            ret.append(cur)
+            remaining = dict([(item, deps - cur) for item, deps
+                              in remaining.items() if item not in cur])
+        else:
+            break
+    if remaining:
+        raise ValueError('unresolvable dependencies: %r' % remaining)
+    return ret
 
 
 def detect_env():
