@@ -36,8 +36,16 @@ class Variable(object):
 
 
 class Layer(object):
-    # TODO
-    provides = ()
+    def layer_provides(self):
+        # TODO: name?
+        # TODO: memoize?
+        members = [(name, getattr(self, name)) for name in dir(self)]
+        return dict([(name, func) for name, func in members
+                     if callable(func) and name[:1] != '_'
+                     and name != 'layer_provides'])
+
+    def __repr__(self):
+        return '%s()' % self.__class__.__name__
 
 
 class FileValue(object):
