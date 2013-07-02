@@ -12,6 +12,15 @@ arg[ument]
 satisfy
 unsatisfied
 pruned
+
+priority:
+
+* preserve layer order (required)
+* in dependency-satisfaction order (required)
+* highly-dependent alternatives (providers in the same var stack)
+* many consumers
+* few arguments
+* short name?
 """
 
 from core import _KNOWN_VARS
