@@ -39,10 +39,15 @@ class Layer(object):
     def layer_provides(self):
         # TODO: name?
         # TODO: memoize?
-        members = [(name, getattr(self, name)) for name in dir(self)]
-        return dict([(name, func) for name, func in members
-                     if callable(func) and name[:1] != '_'
-                     and name != 'layer_provides'])
+        ret = {}
+        for name in dir(self):
+            if name == 'layer_provides' or name.startswith('_'):
+                continue
+            try:
+                ret[name] = Provider(self, name)
+            except ValueError:
+                continue
+        return ret
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
