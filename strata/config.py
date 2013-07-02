@@ -2,6 +2,7 @@
 
 """
 # TODO: raise exception on **kwarg usage in Provider
+# TODO: gonna tons of negative test cases
 
 words:
 
@@ -109,12 +110,38 @@ class Config(object):
 
         sorted_deps = toposort(stacked_rdep_map)
 
+        provider_rdep_map = {}
+        stack_provider_rdep_map = {}
+        provider_savings = {}
+        for var, providers in vpm.items():
+            for p in providers:
+                deps = p.dep_names
+                rdep_sets = [stacked_rdep_map.get(d, set()) for d in deps]
+                rdep_sets.append(set(deps))
+                p_rdeps = set.union(*rdep_sets)
+                provider_rdep_map[p] = p_rdeps
+                provider_savings[p] = set()
+                sprd_list = stack_provider_rdep_map.setdefault(var, [])
+                if sprd_list:
+                    for prev_p, prev_rdeps in sprd_list:
+                        provider_savings[prev_p].update(p_rdeps)
+                sprd_list.append((p, p_rdeps))
+
         dep_indices, dep_order = {}, []
         for level_idx, level in enumerate(sorted_deps):
             sorted_level = sorted(level)
             for var_idx, var_name in enumerate(sorted_level):
                 dep_indices[var_name] = level_idx
                 dep_order.append(var_name)
+
+        def p_sortkey(provider):
+            # see note above
+            p = provider
+            max_dep = max([dep_indices[d] for d in p.dep_names] or [0])
+            savings = len(provider_savings[p])
+            consumer_c = len(vcm.get(p.var_name, []))
+            arg_c = len(p.dep_names)
+            return max_dep, -savings, arg_c, consumer_c, len(p.var_name)
 
         import pdb;pdb.set_trace()
         self._process()
