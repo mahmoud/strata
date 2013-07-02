@@ -1,12 +1,26 @@
 # -*- coding: utf-8 -*-
 
+"""
+# TODO: raise exception on **kwarg usage in Provider
+
+words:
+
+provider -> (layer, arg_names (aka deps))
+consumer
+dependency
+arg[ument]
+satisfy
+unsatisfied
+pruned
+"""
+
 from core import _KNOWN_VARS
 
 from utils import getargspec, get_arg_names, inject
 
 # TODO: this has to improve
-from tests.test_basic import FirstLayer, SecondLayer
-_ENV_LAYERS_MAP = {'dev': [FirstLayer, SecondLayer]}
+from tests.test_basic import FirstLayer, SecondLayer, ThirdLayer
+_ENV_LAYERS_MAP = {'dev': [FirstLayer, SecondLayer, ThirdLayer]}
 
 
 class DepResult(object):

@@ -30,7 +30,18 @@ class FirstLayer(Layer):
         else:
             raise KeyError('nope')
 
+    def var_c(self):
+        return 3
+
 
 class SecondLayer(Layer):
     def var_b(self):
         return 2
+
+    def var_d(self, var_b, var_c):
+        return 4
+
+
+class ThirdLayer(Layer):
+    def var_a(self):
+        return -1  # should never get here
