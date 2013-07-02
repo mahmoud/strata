@@ -99,6 +99,14 @@ class Config(object):
             stacked_rdep_map[var] = rdeps
 
         sorted_deps = toposort(stacked_rdep_map)
+
+        dep_indices, dep_order = {}, []
+        for level_idx, level in enumerate(sorted_deps):
+            sorted_level = sorted(level)
+            for var_idx, var_name in enumerate(sorted_level):
+                dep_indices[var_name] = level_idx
+                dep_order.append(var_name)
+
         import pdb;pdb.set_trace()
         self._process()
 
