@@ -53,6 +53,14 @@ class Layer(object):
         return '%s()' % self.__class__.__name__
 
 
+class StrataLayer(Layer):
+    def __init__(self, config):
+        self._config = config
+
+    def config(self):
+        return self._config
+
+
 class Provider(object):
     """\
     Used internally to represent a single Layer instance's implementation
