@@ -141,8 +141,10 @@ class Config(object):
             savings = len(provider_savings[p])
             consumer_c = len(vcm.get(p.var_name, []))
             arg_c = len(p.dep_names)
-            return max_dep, -savings, arg_c, consumer_c, len(p.var_name)
+            return max_dep, -savings, arg_c, -consumer_c, len(p.var_name)
 
+        provider_idx_map = dict([(p, p_sortkey(p)) for p in all_providers])
+        rdo = sorted(provider_idx_map.items(), key=lambda x: x[-1])
         import pdb;pdb.set_trace()
         self._process()
 

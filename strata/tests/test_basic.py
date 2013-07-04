@@ -43,5 +43,8 @@ class SecondLayer(Layer):
 
 
 class ThirdLayer(Layer):
-    def var_a(self):
-        return -1  # should never get here
+    def var_a(self, var_e):
+        return var_e  # should never get here
+
+    def var_e(self):
+        return -1
