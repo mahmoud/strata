@@ -15,33 +15,33 @@ unsatisfied
 pruned
 """
 
-from core import _KNOWN_VARS
-
-from utils import getargspec, get_arg_names, inject
+import core
+from utils import inject
 
 # TODO: this has to improve
 from tests.test_basic import FirstLayer, SecondLayer, ThirdLayer
 _ENV_LAYERS_MAP = {'dev': [FirstLayer, SecondLayer, ThirdLayer]}
 
 
-class DepResult(object):
-    def __init__(self, by):
+class Resolution(object):
+    def __init__(self, by, value=None):
         self.by = by
+        self.value = value
 
     def __repr__(self):
         cn = self.__class__.__name__
         return '%s(by=%r)' % (cn, self.by)
 
 
-class Pruned(DepResult):
+class Pruned(Resolution):
     pass
 
 
-class Satisfied(DepResult):
+class Satisfied(Resolution):
     pass
 
 
-class Unsatisfied(DepResult):
+class Unsatisfied(Resolution):
     pass
 
 
@@ -52,22 +52,20 @@ class Config(object):
             self.env = detect_env()  # TODO: member function?
         self._layer_types = _ENV_LAYERS_MAP[self.env]  # TODO
         self._layers = [t() for t in self._layer_types]
+        self._strata_layer = core.StrataLayer(self)
 
         self.deps = {}
         self.results = {}
 
-        self._satisfied = {'config': self,
-                           'kwargs': self}
-        self._unsatisfied = {}
-        self._pruned = {}
+        self._cur_vals = {'config': self}
+        self._resolved = {'config': Satisfied(self._strata_layer, self)}
+        self._unresolved = set()  # buncha TODOs here
+        # TODO: resolved/unresolved with Resolution subtypes
+
         self._var_provider_map = vpm = {}
         self._var_consumer_map = vcm = {}
 
-        #all_vars = sum([l.layer_provides().keys() for l in self._layers], [])
-        #all_vars = set(all_vars)
-        #fut_all_vars = core._KNOWN_VARS.keys()
-
-        for layer in self._layers:  # TODO: refactor
+        for layer in self._layers:
             layer_provides = layer.layer_provides()
             for var_name, provider in layer_provides.items():
                 vpm.setdefault(var_name, []).append(provider)
