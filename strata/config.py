@@ -137,7 +137,26 @@ class Config(object):
         self._process()
 
     def _process(self):
-        print 'yay'
+        self._unresolved = set([x for x in self._all_var_names
+                                if x not in self._resolved])
+        remaining_consumers = dict(self._var_consumer_map)  # TODO
+        for provider, scores in self.rdo:
+            var_name = provider.var_name
+            cur_val = self._resolved.get('var_name')
+            if isinstance(cur_val, (Satisfied, Pruned)):
+                print 'pruning:', var_name, cur_val
+                self._unresolved.discard(var_name)
+                continue
+            try:
+                res = inject(provider.func, self._cur_vals)
+            except Exception as e:
+                print e
+                # self._resolved[var_name] = Unsatisfied(by=provider)
+            else:
+                self._unresolved.discard(var_name)
+                self._resolved[var_name] = Satisfied(by=provider, value=res)
+                self._cur_vals[var_name] = res
+        import pdb;pdb.set_trace()
 
 
 def toposort(dep_map):
