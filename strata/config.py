@@ -52,19 +52,26 @@ class LayerSet(object):  # TODO: do-want?
 
 
 class ConfigSpec(object):
-    def __init__(self):
-        pass
+    def __init__(self, variables=None, layersets=None):  # TODO: defer option?
+        self.layersets = list(layersets or [])
+        self.variables = list(variables or [])
 
-    def register_variable(self, var_type):  # TODO: type or instance?
-        pass
+        # default maps/indexes
 
-    def register_layerset(self, env_name, layers):
-        pass
+    @property
+    def env_layer_map(self):
+        return dict([(ls.env, ls.layers) for ls in layersets])
 
-    def register_module(self, module):
-        pass  # convenience function, loads recognized objects out of a module
+    @classmethod
+    def from_modules(cls, modules):
+        """find all variables/layersets in the modules.
+
+        TODO: except/warn on overwrites/unused types?
+        """
+        return cls()
 
     def get_config_type(self):
+        # TODO: specify requirements here?
         pass
 
     def _compute(self):
