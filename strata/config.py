@@ -12,13 +12,6 @@ arg[ument]
 satisfy
 unsatisfied
 pruned
-
-A word on priority:
-
-'savings' enables sorting fulfillment order such that a variable's
-provisioning would eliminate the most references to other variables
-(pruning), i.e., the next item whose downstream alternatives have a
-large number of dependencies.
 """
 
 import core
@@ -129,6 +122,7 @@ class Config(object):
         provider_key_map = {}
         for p in self._all_providers:
             provider_key_map[p] = p_sortkey(provider=p,
+                                            provider_map=vpm,
                                             level_idx_map=dep_indices,
                                             savings_map=provider_savings,
                                             consumer_map=vcm)
@@ -142,9 +136,9 @@ class Config(object):
         remaining_consumers = dict(self._var_consumer_map)  # TODO
         for provider, scores in self.rdo:
             var_name = provider.var_name
-            cur_val = self._resolved.get('var_name')
+            cur_val = self._resolved.get(var_name)
             if isinstance(cur_val, (Satisfied, Pruned)):
-                print 'pruning:', var_name, cur_val
+                print 'pruning:', provider
                 self._unresolved.discard(var_name)
                 continue
             try:
@@ -180,16 +174,22 @@ def toposort(dep_map):
     return ret
 
 
-def p_sortkey(provider, level_idx_map, savings_map=None, consumer_map=None):
+def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
+              consumer_map=None):
     """
     priority:
 
     * preserve layer order (required)
     * in dependency-satisfaction order (required)
-    * highly-dependent alternatives (providers in the same var stack)
+    * savings (i.e., highly-dependent alternatives)
     * many consumers
     * few arguments
     * short name?
+
+    'savings' enables sorting fulfillment order such that a variable's
+    provisioning would eliminate the most references to other variables
+    (pruning), i.e., the next item whose downstream alternatives have a
+    large number of dependencies.
     """
     p = provider
     savings_map = savings_map or {}
