@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""
-# TODO: raise exception on **kwarg usage in Provider
+"""# TODO: raise exception on **kwarg usage in Provider
 # TODO: gonna tons of negative test cases
 
 words:
@@ -13,6 +12,13 @@ arg[ument]
 satisfy
 unsatisfied
 pruned
+
+A word on priority:
+
+'savings' enables sorting fulfillment order such that a variable's
+provisioning would eliminate the most references to other variables
+(pruning), i.e., the next item whose downstream alternatives have a
+large number of dependencies.
 """
 
 import core
@@ -74,9 +80,6 @@ class Config(object):
 
         self._all_providers = sum(vpm.values(), [])
         self._all_var_names = vpm.keys()  # TODO: + pre-satisfied?
-        """fulfill the item such that its provision would eliminate the most
-        references to variables, i.e., the next item whose downstream
-        alternatives have a large number of dependencies."""
 
         # expand out all deps
         stacked_dep_map = {}  # args across all layers
@@ -116,12 +119,12 @@ class Config(object):
                         provider_savings[prev_p].update(p_rdeps)
                 sprd_list.append((p, p_rdeps))
 
-        dep_indices, dep_order = {}, []
+        dep_indices, basic_dep_order = {}, []
         for level_idx, level in enumerate(sorted_deps):
             sorted_level = sorted(level)
-            for var_idx, var_name in enumerate(sorted_level):
+            for var_name in sorted_level:
                 dep_indices[var_name] = level_idx
-                dep_order.append(var_name)
+                basic_dep_order.append(var_name)
 
         provider_key_map = {}
         for p in self._all_providers:
@@ -129,12 +132,12 @@ class Config(object):
                                             level_idx_map=dep_indices,
                                             savings_map=provider_savings,
                                             consumer_map=vcm)
-        rdo = sorted(provider_key_map.items(), key=lambda x: x[-1])
-        import pdb;pdb.set_trace()
+
+        self.rdo = sorted(provider_key_map.items(), key=lambda x: x[-1])
         self._process()
 
     def _process(self):
-        pass
+        print 'yay'
 
 
 def toposort(dep_map):
