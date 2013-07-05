@@ -119,7 +119,6 @@ class Config(object):
                 dep_indices[var_name] = level_idx
                 basic_dep_order.append(var_name)
 
-        import pdb;pdb.set_trace()
         provider_key_map = {}
         for p in self._all_providers:
             provider_key_map[p] = p_sortkey(provider=p,
