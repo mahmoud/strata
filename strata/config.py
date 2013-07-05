@@ -119,10 +119,11 @@ class Config(object):
                 dep_indices[var_name] = level_idx
                 basic_dep_order.append(var_name)
 
+        import pdb;pdb.set_trace()
         provider_key_map = {}
         for p in self._all_providers:
             provider_key_map[p] = p_sortkey(provider=p,
-                                            layers=self._layers,
+                                            provider_map=vpm,
                                             level_idx_map=dep_indices,
                                             savings_map=provider_savings,
                                             consumer_map=vcm)
@@ -153,28 +154,7 @@ class Config(object):
         import pdb;pdb.set_trace()
 
 
-def toposort(dep_map):
-    "expects a dict of {item: set([deps])}"
-    ret, dep_map = [], dict(dep_map)
-    if not dep_map:
-        return []
-    extras = set.union(*dep_map.values()) - set(dep_map)
-    dep_map.update([(k, set()) for k in extras])
-    remaining = dict(dep_map)
-    while remaining:
-        cur = set([item for item, deps in remaining.items() if not deps])
-        if cur:
-            ret.append(cur)
-            remaining = dict([(item, deps - cur) for item, deps
-                              in remaining.items() if item not in cur])
-        else:
-            break
-    if remaining:
-        raise ValueError('unresolvable dependencies: %r' % remaining)
-    return ret
-
-
-def p_sortkey(provider, layers, level_idx_map, savings_map=None,
+def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
               consumer_map=None):
     """
     priority:
@@ -194,13 +174,37 @@ def p_sortkey(provider, layers, level_idx_map, savings_map=None,
     p = provider
     savings_map = savings_map or {}
     consumer_map = consumer_map or {}
-    layer_idx = layers.index(p.layer)
+    var_stack = provider_map[p.var_name]
+    layer_idx = var_stack.index(p)
+    upstack_dep_lists = [up.dep_names for up in var_stack[:layer_idx]]
+    upstack_dep_set = set(sum(upstack_dep_lists, ()))
     max_dep = max([level_idx_map[d] for d in p.dep_names] or [0])
+    agg_dep = max_dep + len(upstack_dep_set) + layer_idx
     savings = len(savings_map.get(p, []))
     consumer_c = len(consumer_map.get(p.var_name, []))
     arg_c = len(p.dep_names)
-    return (layer_idx, max_dep, -savings, -consumer_c,
-            arg_c, len(p.var_name))
+    return (agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
+
+
+def toposort(dep_map):
+    "expects a dict of {item: set([deps])}"
+    ret, dep_map = [], dict(dep_map)
+    if not dep_map:
+        return []
+    extras = set.union(*dep_map.values()) - set(dep_map)
+    dep_map.update([(k, set()) for k in extras])
+    remaining = dict(dep_map)
+    while remaining:
+        cur = set([item for item, deps in remaining.items() if not deps])
+        if cur:
+            ret.append(cur)
+            remaining = dict([(item, deps - cur) for item, deps
+                              in remaining.items() if item not in cur])
+        else:
+            break
+    if remaining:
+        raise ValueError('unresolvable dependencies: %r' % remaining)
+    return ret
 
 
 def detect_env():
