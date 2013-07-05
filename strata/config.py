@@ -13,15 +13,6 @@ arg[ument]
 satisfy
 unsatisfied
 pruned
-
-priority:
-
-* preserve layer order (required)
-* in dependency-satisfaction order (required)
-* highly-dependent alternatives (providers in the same var stack)
-* many consumers
-* few arguments
-* short name?
 """
 
 from core import _KNOWN_VARS
@@ -83,8 +74,8 @@ class Config(object):
                 for dn in provider.dep_names:
                     vcm.setdefault(dn, []).append(provider)
 
-        all_providers = sum(vpm.values(), [])
-        all_var_names = vpm.keys()  # TODO: + pre-satisfied?
+        self._all_providers = sum(vpm.values(), [])
+        self._all_var_names = vpm.keys()  # TODO: + pre-satisfied?
         """fulfill the item such that its provision would eliminate the most
         references to variables, i.e., the next item whose downstream
         alternatives have a large number of dependencies."""
@@ -134,17 +125,13 @@ class Config(object):
                 dep_indices[var_name] = level_idx
                 dep_order.append(var_name)
 
-        def p_sortkey(provider):
-            # see note above
-            p = provider
-            max_dep = max([dep_indices[d] for d in p.dep_names] or [0])
-            savings = len(provider_savings[p])
-            consumer_c = len(vcm.get(p.var_name, []))
-            arg_c = len(p.dep_names)
-            return max_dep, -savings, arg_c, -consumer_c, len(p.var_name)
-
-        provider_idx_map = dict([(p, p_sortkey(p)) for p in all_providers])
-        rdo = sorted(provider_idx_map.items(), key=lambda x: x[-1])
+        provider_key_map = {}
+        for p in self._all_providers:
+            provider_key_map[p] = p_sortkey(provider=p,
+                                            level_idx_map=dep_indices,
+                                            savings_map=provider_savings,
+                                            consumer_map=vcm)
+        rdo = sorted(provider_key_map.items(), key=lambda x: x[-1])
         import pdb;pdb.set_trace()
         self._process()
 
@@ -171,6 +158,27 @@ def toposort(dep_map):
     if remaining:
         raise ValueError('unresolvable dependencies: %r' % remaining)
     return ret
+
+
+def p_sortkey(provider, level_idx_map, savings_map=None, consumer_map=None):
+    """
+    priority:
+
+    * preserve layer order (required)
+    * in dependency-satisfaction order (required)
+    * highly-dependent alternatives (providers in the same var stack)
+    * many consumers
+    * few arguments
+    * short name?
+    """
+    p = provider
+    savings_map = savings_map or {}
+    consumer_map = consumer_map or {}
+    max_dep = max([level_idx_map[d] for d in p.dep_names] or [0])
+    savings = len(savings_map.get(p, []))
+    consumer_c = len(consumer_map.get(p.var_name, []))
+    arg_c = len(p.dep_names)
+    return max_dep, -savings, arg_c, -consumer_c, len(p.var_name)
 
 
 def detect_env():
