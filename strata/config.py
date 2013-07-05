@@ -17,6 +17,8 @@ unsatisfied
 pruned
 """
 
+from collections import namedtuple
+
 import core
 from utils import inject
 
@@ -51,32 +53,116 @@ class LayerSet(object):  # TODO: do-want?
     pass
 
 
-class ConfigSpec(object):
-    def __init__(self, variables=None, layersets=None):  # TODO: defer option?
-        self.layersets = list(layersets or [])
-        self.variables = list(variables or [])
+# Gonna need a separate env-aware ConfigSpec thing, so as not to make
+# the following too complex. That one will prolly have:
+#     def get_config_type(self):
+#        # TODO: specify requirements here?
+#        pass
+#     @property
+#     def env_layer_map(self):
+#        return dict([(ls.env, ls.layers) for ls in self.layersets])
 
+
+class ConfigSpec(object):
+    def __init__(self, variables, layerset):  # TODO: defer option?
+        self.layerset = layerset
+        self.variables = list(variables or [])
         # default maps/indexes
 
-    @property
-    def env_layer_map(self):
-        return dict([(ls.env, ls.layers) for ls in layersets])
+        # var_provider_map
+        # var_consumer_map
+        # all_providers
+        # all_var_names
+
+        self._compute()
 
     @classmethod
     def from_modules(cls, modules):
         """find all variables/layersets in the modules.
+        One ConfigSpec per layerset.
 
         TODO: except/warn on overwrites/unused types?
         """
         return cls()
 
-    def get_config_type(self):
-        # TODO: specify requirements here?
-        pass
-
     def _compute(self):
         # raise on insufficient providers
-        pass
+        vpm = self.var_provider_map = {}
+        vcm = self.var_consumer_map = {}
+
+        for layer in self.layerset:
+            # TODO: use self.variables
+            layer_provides = layer.layer_provides()
+            for var_name, provider in layer_provides.items():
+                vpm.setdefault(var_name, []).append(provider)
+                for dn in provider.dep_names:
+                    vcm.setdefault(dn, []).append(provider)
+
+        self.all_providers = sum(vpm.values(), [])
+        self.all_var_names = vpm.keys()  # TODO: + pre-satisfied?
+
+        stacked_dep_map, stacked_rdep_map = self._compute_stacked_maps(vpm)
+        sorted_dep_slots = toposort(stacked_rdep_map)
+        dep_indices, slot_order = {}, []
+        for level_idx, level in enumerate(sorted_dep_slots):
+            for var_name in level:
+                dep_indices[var_name] = level_idx
+                slot_order.append(var_name)
+        self.slot_order = slot_order
+
+        savings_map = self._compute_savings_map(vpm, stacked_rdep_map)
+
+        pkm = self.provider_key_map = {}
+        for p in self._all_providers:
+            pkm[p] = p_sortkey(provider=p,
+                               provider_map=vpm,
+                               level_idx_map=dep_indices,
+                               savings_map=savings_map,
+                               consumer_map=vcm)
+
+        self.sorted_providers = sorted(pkm.items(), key=lambda x: x[-1])
+
+    @staticmethod
+    def _compute_stacked_maps(var_provider_map):
+        stacked_dep_map = {}  # args across all layers
+        for var, providers in var_provider_map.items():
+            stacked_deps = sum([list(p.dep_names) for p in providers], [])
+            stacked_dep_map[var] = set(stacked_deps)
+
+        stacked_rdep_map = {}  # a var's args, and their args, etc.
+        for var, stacked_deps in stacked_dep_map.items():
+            to_proc, rdeps, i = [var], set(), 0
+            while to_proc:
+                i += 1  # TODO: better circdep handlin
+                if i > 50:
+                    raise Exception('circular deps, I think: %r' % var)
+                cur = to_proc.pop()
+                cur_rdeps = stacked_dep_map.get(cur, [])
+                to_proc.extend(cur_rdeps)
+                rdeps.update(cur_rdeps)
+            stacked_rdep_map[var] = rdeps
+        return stacked_dep_map, stacked_rdep_map
+
+    @staticmethod
+    def _compute_savings_map(var_provider_map, stacked_rdep_map):
+        # aka cost of alternative implementations of a var
+        provider_rdep_map = {}
+        stack_provider_rdep_map = {}
+        provider_savings = {}
+        for var, providers in var_provider_map.items():
+            for p in providers:
+                deps = p.dep_names
+                rdep_sets = [stacked_rdep_map.get(d, set()) for d in deps]
+                rdep_sets.append(set(deps))
+                p_rdeps = set.union(*rdep_sets)
+                provider_rdep_map[p] = p_rdeps
+                provider_savings[p] = set()
+                sprd_list = stack_provider_rdep_map.setdefault(var, [])
+                if sprd_list:
+                    for prev_p, prev_rdeps in sprd_list:
+                        provider_savings[prev_p].update(p_rdeps)
+                sprd_list.append((p, p_rdeps))
+        return provider_savings
 
 
 class Config(object):
@@ -188,6 +274,10 @@ class Config(object):
         import pdb;pdb.set_trace()
 
 
+# ProviderSortKey
+PSK = namedtuple('PSK', 'agg_dep savings cons_c arg_c char_c')
+
+
 def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
               consumer_map=None):
     """
@@ -217,7 +307,7 @@ def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
     savings = len(savings_map.get(p, []))
     consumer_c = len(consumer_map.get(p.var_name, []))
     arg_c = len(p.dep_names)
-    return (agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
+    return PSK(agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
 
 
 def toposort(dep_map):
@@ -247,6 +337,8 @@ def detect_env():
 
 
 def main():
+    cspec = ConfigSpec([], _ENV_LAYERS_MAP['dev'])
+    import pdb;pdb.set_trace()
     conf = Config()
     return conf
 
