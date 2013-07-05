@@ -92,14 +92,14 @@ class ConfigSpec(object):
 
         for layer in self.layerset:
             # TODO: use self.variables
-            layer_provides = layer.layer_provides()
+            layer_provides = layer.layer_provides(self.variables)
             for var_name, provider in layer_provides.items():
                 vpm.setdefault(var_name, []).append(provider)
                 for dn in provider.dep_names:
                     vcm.setdefault(dn, []).append(provider)
 
         self.all_providers = sum(vpm.values(), [])
-        self.all_var_names = vpm.keys()  # TODO: + pre-satisfied?
+        self.all_var_names = sorted(vpm.keys())  # TODO: + pre-satisfied?
 
         stacked_dep_map, stacked_rdep_map = self._compute_stacked_maps(vpm)
         sorted_dep_slots = toposort(stacked_rdep_map)
@@ -113,7 +113,7 @@ class ConfigSpec(object):
         savings_map = self._compute_savings_map(vpm, stacked_rdep_map)
 
         pkm = self.provider_key_map = {}
-        for p in self._all_providers:
+        for p in self.all_providers:
             pkm[p] = p_sortkey(provider=p,
                                provider_map=vpm,
                                level_idx_map=dep_indices,

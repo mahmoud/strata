@@ -36,15 +36,16 @@ class Variable(object):
 
 
 class Layer(object):
-    def layer_provides(self):
+    @classmethod
+    def layer_provides(cls, _variables):
         # TODO: name?
         # TODO: memoize?
         ret = {}
-        for name in dir(self):
+        for name in dir(cls):
             if name == 'layer_provides' or name.startswith('_'):
                 continue
             try:
-                ret[name] = Provider(self, name)
+                ret[name] = Provider(cls, name)
             except ValueError:
                 continue
         return ret
@@ -82,10 +83,17 @@ class Provider(object):
         except:
             raise ValueError('unsupported provider type: %r' % self.func)
 
+    @property
+    def is_bound(self):
+        return not isinstance(self.layer, type)
+
     def __repr__(self):
         cn = self.__class__.__name__
         try:
-            layer_cn = self.layer.__class__.__name__
+            if self.is_bound:
+                layer_cn = self.layer.__class__.__name__
+            else:
+                layer_cn = self.layer.__name__
             func_sig = '%s(%s)' % (self.var_name, ', '.join(self.dep_names))
             return '%s(%s.%s)' % (cn, layer_cn, func_sig)
         except:
