@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-"""# TODO: raise exception on **kwarg usage in Provider
+"""
+
+# TODO: raise exception on **kwarg usage in Provider
 # TODO: gonna tons of negative test cases
+# TODO: variable names can't start with underscore
 
 words:
 
@@ -42,6 +45,31 @@ class Satisfied(Resolution):
 
 class Unsatisfied(Resolution):
     pass
+
+
+class LayerSet(object):  # TODO: do-want?
+    pass
+
+
+class ConfigSpec(object):
+    def __init__(self):
+        pass
+
+    def register_variable(self, var_type):  # TODO: type or instance?
+        pass
+
+    def register_layerset(self, env_name, layers):
+        pass
+
+    def register_module(self, module):
+        pass  # convenience function, loads recognized objects out of a module
+
+    def get_config_type(self):
+        pass
+
+    def _compute(self):
+        # raise on insufficient providers
+        pass
 
 
 class Config(object):
