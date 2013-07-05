@@ -122,7 +122,7 @@ class Config(object):
         provider_key_map = {}
         for p in self._all_providers:
             provider_key_map[p] = p_sortkey(provider=p,
-                                            provider_map=vpm,
+                                            layers=self._layers,
                                             level_idx_map=dep_indices,
                                             savings_map=provider_savings,
                                             consumer_map=vcm)
@@ -144,7 +144,7 @@ class Config(object):
             try:
                 res = inject(provider.func, self._cur_vals)
             except Exception as e:
-                print e
+                print repr(e)
                 # self._resolved[var_name] = Unsatisfied(by=provider)
             else:
                 self._unresolved.discard(var_name)
@@ -174,7 +174,7 @@ def toposort(dep_map):
     return ret
 
 
-def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
+def p_sortkey(provider, layers, level_idx_map, savings_map=None,
               consumer_map=None):
     """
     priority:
@@ -194,11 +194,13 @@ def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
     p = provider
     savings_map = savings_map or {}
     consumer_map = consumer_map or {}
+    layer_idx = layers.index(p.layer)
     max_dep = max([level_idx_map[d] for d in p.dep_names] or [0])
     savings = len(savings_map.get(p, []))
     consumer_c = len(consumer_map.get(p.var_name, []))
     arg_c = len(p.dep_names)
-    return max_dep, -savings, arg_c, -consumer_c, len(p.var_name)
+    return (layer_idx, max_dep, -savings, -consumer_c,
+            arg_c, len(p.var_name))
 
 
 def detect_env():

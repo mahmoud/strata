@@ -33,6 +33,9 @@ class FirstLayer(Layer):
     def var_c(self):
         return 3
 
+    def var_f(self, var_e):
+        return 6
+
 
 class SecondLayer(Layer):
     def var_b(self):
