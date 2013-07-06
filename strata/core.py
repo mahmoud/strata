@@ -54,10 +54,10 @@ def ez_vars(layers):
 
 class Layer(object):
     @classmethod
-    def _get_provider(cls, var_name):
+    def _get_provider(cls, variable):
         # TODO: descriptor to support usage on both class and instance?
         # TODO: switch to getattribute?
-        return Provider(cls, var_name)
+        return Provider(cls, variable.name)
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
@@ -78,15 +78,26 @@ class Provider(object):
     """
 
     def __init__(self, layer, var_name, func=None):
-        self.layer = layer
+        if isinstance(layer, type):
+            self.layer_inst = None
+            self.layer_type = layer
+        else:
+            self.layer_inst = layer
+            self.layer_type = type(layer)
         self.var_name = var_name
         self.func = func
         if self.func is None:
-            try:
-                self.func = getattr(layer, var_name)
-            except AttributeError:
-                msg = 'Layer %r does not provide %r' % (layer, var_name)
-                raise ValueError(msg)
+            self._set_func(layer)
+        else:
+            self._is_custom_func = True
+
+    def _set_func(self, layer):
+        self._is_custom_func = False
+        vn = self.var_name
+        try:
+            self.func = getattr(layer, vn)
+        except AttributeError:
+            raise ValueError("Layer %r doesn't provide %r" % (layer, vn))
         try:
             self.dep_names = get_arg_names(self.func)
         except:
@@ -94,15 +105,18 @@ class Provider(object):
 
     @property
     def is_bound(self):
-        return not isinstance(self.layer, type)
+        return self.layer_inst is not None
+
+    def get_bound(self, layer_inst):
+        # TODO: check that layer types match?
+        p_type = type(self)
+        func = self.func if self._is_custom_func else None
+        return p_type(layer_inst, self.var_name, func)
 
     def __repr__(self):
         cn = self.__class__.__name__
         try:
-            if self.is_bound:
-                layer_cn = self.layer.__class__.__name__
-            else:
-                layer_cn = self.layer.__name__
+            layer_cn = self.layer_type.__name__
             func_sig = '%s(%s)' % (self.var_name, ', '.join(self.dep_names))
             return '%s(%s.%s)' % (cn, layer_cn, func_sig)
         except:
