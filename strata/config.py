@@ -97,23 +97,21 @@ class ConfigSpec(object):
         var_names = set([v.name for v in self.variables])
 
         if not req_names <= var_names:
-            self.variables.extend(req_names - var_names)
-            self._compute()  # TODO: check that recomputation is safe
+            self._compute(reqs)  # TODO: check that recomputation is safe
 
         attrs = {'config_spec': self,
                  'requirements': reqs,
                  'default_defer': default_defer}
         return type('Config', (Config,), attrs)
 
-    def _compute(self):
+    def _compute(self, requirements=None):
+        requirements = requirements or []
         # raise on insufficient providers
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
 
         for layer in self.layerset:
-            # TODO: use self.variables
-            #layer_provides = layer.layer_provides(self.variables)
-            for var in self.variables:
+            for var in self.variables + requirements:
                 try:
                     provider = layer._get_provider(var)
                 except ValueError:  # TODO: custom error
@@ -200,19 +198,19 @@ class ConfigSpec(object):
 
 class Config(object):
     config_spec = None
+    requirements = None
     default_defer = False
 
     def __init__(self, env=None, **kwargs):
         # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
-
         self.deferred = kwargs.pop('_defer', self.default_defer)
 
         self._layers = [t() for t in self.config_spec.layerset]
         layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
         self._layer_map = layer_obj_map
-        self.providers = [p.get_bound(layer_obj_map[p.layer_type]) for p in
-                          self.config_spec.sorted_providers]
+        self.providers = [p.get_bound(layer_obj_map[p.layer_type])
+                          for p in self.config_spec.sorted_providers]
         self._strata_layer = core.StrataLayer(self)
 
         self._resolved = {'config': Satisfied(self._strata_layer, self)}
@@ -249,9 +247,11 @@ class Config(object):
             else:
                 provider_results[provider] = Satisfied(by=provider, value=res)
                 _cur_vals[var_name] = res
+                for provider_dep_name in cfg_spec.slot_dep_map[var_name]:
+                    ref_tracker[provider_dep_name].discard(var_name)
+
         self.results = _cur_vals
         self.provider_results = provider_results
-        import pdb;pdb.set_trace()
 
 
 # ProviderSortKey
@@ -315,8 +315,9 @@ def main():
     from core import ez_vars  # tmp
     layers = _ENV_LAYERS_MAP['dev']
     variables = ez_vars(layers)
+    var_d = [v for v in variables if v.name == 'var_d'][0]
     cspec = ConfigSpec(variables, layers)
-    conf_type = cspec.make_config()
+    conf_type = cspec.make_config(reqs=[var_d])
     conf = conf_type()
     return conf
 
