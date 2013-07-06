@@ -40,7 +40,8 @@ class Resolution(object):
 
 
 class Pruned(Resolution):
-    pass
+    def __init__(self, by=None, value=None):
+        return super(Pruned, self).__init__(by, value)
 
 
 class Satisfied(Resolution):
@@ -111,9 +112,9 @@ class ConfigSpec(object):
         self.all_providers = sum(vpm.values(), [])
         self.all_var_names = sorted(vpm.keys())  # TODO: + pre-satisfied?
 
-        slot_dep_map = self._compute_slot_dep_map(vpm)
-        slot_rdep_map = self._compute_rdep_map(slot_dep_map)
-        sorted_dep_slots = toposort(slot_rdep_map)
+        sdm = self.slot_dep_map = self._compute_slot_dep_map(vpm)
+        srdm = self.slot_rdep_map = self._compute_rdep_map(sdm)
+        sorted_dep_slots = toposort(srdm)
         dep_indices, slot_order = {}, []
         for level_idx, level in enumerate(sorted_dep_slots):
             for var_name in level:
@@ -121,7 +122,7 @@ class ConfigSpec(object):
                 slot_order.append(var_name)
         self.slot_order = slot_order
 
-        savings_map = self._compute_savings_map(vpm, slot_rdep_map)
+        savings_map = self._compute_savings_map(vpm, srdm)
 
         pkm = self.provider_key_map = {}
         for p in self.all_providers:
@@ -188,12 +189,8 @@ class Config(object):
     config_spec = None
 
     def __init__(self, env=None, **kwargs):
+        # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
-
-        self.env = kwargs.pop('env', None)
-        if self.env is None:
-            self.env = detect_env()  # TODO: member function?
-        #self._layer_types = _ENV_LAYERS_MAP[self.env]  # TODO
 
         self._layers = [t() for t in self.config_spec.layerset]
         layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
@@ -202,36 +199,38 @@ class Config(object):
                           self.config_spec.sorted_providers]
         self._strata_layer = core.StrataLayer(self)
 
-        self._cur_vals = {'config': self}
         self._resolved = {'config': Satisfied(self._strata_layer, self)}
         self._unresolved = set()  # buncha TODOs here
 
         self.results = {}
 
-        self._process()
+        self._process()  # TODO: what to do about re-processing?
 
     def _process(self):
-        # TODO: need to somehow instantiate the layers in the Providers
-
-        self._unresolved = set([x for x in self.config_spec.all_var_names
-                                if x not in self._resolved])
-        remaining_consumers = dict(self.config_spec.var_consumer_map)
+        # TODO: need to provide a way of specifying end-requirements
+        cfg_spec = self.config_spec
+        ref_tracker = dict([(k, set([p.var_name for p in ps]))
+                            for k, ps in cfg_spec.var_consumer_map.items()])
+        _cur_vals = {'config': self}
+        provider_results = {}
         for provider in self.providers:
             var_name = provider.var_name
-            cur_val = self._resolved.get(var_name)
-            if isinstance(cur_val, (Satisfied, Pruned)):
-                print 'pruning:', provider
-                self._unresolved.discard(var_name)
+            if ref_tracker.get(var_name) is None:
+                print 'pruning: ', provider, '(no refs)'
+                provider_results[provider] = Pruned()
+                continue
+            elif var_name in _cur_vals:
+                print 'pruning:', provider, '(already satisfied)'
+                provider_results[provider] = Pruned()
                 continue
             try:
-                res = inject(provider.func, self._cur_vals)
+                res = inject(provider.func, _cur_vals)
             except Exception as e:
                 print repr(e)
-                # self._resolved[var_name] = Unsatisfied(by=provider)
+                provider_results[provider] = Unsatisfied(by=provider, value=e)
             else:
-                self._unresolved.discard(var_name)
-                self._resolved[var_name] = Satisfied(by=provider, value=res)
-                self._cur_vals[var_name] = res
+                provider_results[provider] = Satisfied(by=provider, value=res)
+                _cur_vals[var_name] = res
         import pdb;pdb.set_trace()
 
 
@@ -290,11 +289,6 @@ def toposort(dep_map):
     if remaining:
         raise ValueError('unresolvable dependencies: %r' % remaining)
     return ret
-
-
-def detect_env():
-    # TODO
-    return 'dev'
 
 
 def main():
