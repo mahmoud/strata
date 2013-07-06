@@ -88,9 +88,22 @@ class ConfigSpec(object):
         """
         return cls()
 
-    def make_config(self, name=None):
-        name = name or 'FancyConfig'
-        return type('Config', (Config,), {'config_spec': self})
+    def make_config(self, name=None, reqs=None, default_defer=False):
+        name = name or 'FancyConfig'  # TODO, clearly
+        reqs = set(self.variables) if reqs is None else set(reqs)
+
+        # check requirements
+        req_names = set([r.name for r in reqs])
+        var_names = set([v.name for v in self.variables])
+
+        if not req_names <= var_names:
+            self.variables.extend(req_names - var_names)
+            self._compute()  # TODO: check that recomputation is safe
+
+        attrs = {'config_spec': self,
+                 'requirements': reqs,
+                 'default_defer': default_defer}
+        return type('Config', (Config,), attrs)
 
     def _compute(self):
         # raise on insufficient providers
@@ -187,10 +200,13 @@ class ConfigSpec(object):
 
 class Config(object):
     config_spec = None
+    default_defer = False
 
     def __init__(self, env=None, **kwargs):
         # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
+
+        self.deferred = kwargs.pop('_defer', self.default_defer)
 
         self._layers = [t() for t in self.config_spec.layerset]
         layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
@@ -204,9 +220,11 @@ class Config(object):
 
         self.results = {}
 
-        self._process()  # TODO: what to do about re-processing?
+        if not self.deferred:
+            self._process()
 
     def _process(self):
+        # TODO: what to do about re-processin?
         # TODO: need to provide a way of specifying end-requirements
         cfg_spec = self.config_spec
         ref_tracker = dict([(k, set([p.var_name for p in ps]))
@@ -226,11 +244,13 @@ class Config(object):
             try:
                 res = inject(provider.func, _cur_vals)
             except Exception as e:
-                print repr(e)
+                print 'exception:', repr(e)
                 provider_results[provider] = Unsatisfied(by=provider, value=e)
             else:
                 provider_results[provider] = Satisfied(by=provider, value=res)
                 _cur_vals[var_name] = res
+        self.results = _cur_vals
+        self.provider_results = provider_results
         import pdb;pdb.set_trace()
 
 
