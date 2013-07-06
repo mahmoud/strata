@@ -92,9 +92,13 @@ class ConfigSpec(object):
 
         for layer in self.layerset:
             # TODO: use self.variables
-            layer_provides = layer.layer_provides(self.variables)
-            for var_name, provider in layer_provides.items():
-                vpm.setdefault(var_name, []).append(provider)
+            #layer_provides = layer.layer_provides(self.variables)
+            for var in self.variables:
+                try:
+                    provider = layer._get_provider(var.name)
+                except ValueError:  # TODO: custom error
+                    continue
+                vpm.setdefault(var.name, []).append(provider)
                 for dn in provider.dep_names:
                     vcm.setdefault(dn, []).append(provider)
 
@@ -337,7 +341,10 @@ def detect_env():
 
 
 def main():
-    cspec = ConfigSpec([], _ENV_LAYERS_MAP['dev'])
+    from core import ez_vars  # tmp
+    layers = _ENV_LAYERS_MAP['dev']
+    variables = ez_vars(layers)
+    cspec = ConfigSpec(variables, layers)
     import pdb;pdb.set_trace()
     conf = Config()
     return conf

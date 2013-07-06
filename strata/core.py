@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from utils import camel2under, get_arg_names
+from utils import under2camel, camel2under, get_arg_names
 
 _KNOWN_VARS = {}
 
@@ -35,20 +35,29 @@ class Variable(object):
         pass  # TODO
 
 
+def ez_vars(layers):
+    """
+    A (most likely temporary) utility function to make Variables off
+    of Layer definitions. Something like this should maybe exist in
+    the future, using decorators.
+    """
+    names = set()
+    for layer in layers:
+        for name in dir(layer):
+            if name.startswith('_'):
+                continue
+            if name == 'layer_provides':
+                continue  # TODO: tmp
+            names.add(under2camel(name))
+    return [VariableMeta(n, (Variable,), {}) for n in sorted(names)]
+
+
 class Layer(object):
     @classmethod
-    def layer_provides(cls, _variables):
-        # TODO: name?
-        # TODO: memoize?
-        ret = {}
-        for name in dir(cls):
-            if name == 'layer_provides' or name.startswith('_'):
-                continue
-            try:
-                ret[name] = Provider(cls, name)
-            except ValueError:
-                continue
-        return ret
+    def _get_provider(cls, var_name):
+        # TODO: descriptor to support usage on both class and instance?
+        # TODO: switch to getattribute?
+        return Provider(cls, var_name)
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
