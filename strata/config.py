@@ -85,6 +85,10 @@ class ConfigSpec(object):
         """
         return cls()
 
+    def make_config(self, name=None):
+        name = name or 'FancyConfig'
+        return type('Config', (Config,), {'config_spec': self})
+
     def _compute(self):
         # raise on insufficient providers
         vpm = self.var_provider_map = {}
@@ -95,7 +99,7 @@ class ConfigSpec(object):
             #layer_provides = layer.layer_provides(self.variables)
             for var in self.variables:
                 try:
-                    provider = layer._get_provider(var.name)
+                    provider = layer._get_provider(var)
                 except ValueError:  # TODO: custom error
                     continue
                 vpm.setdefault(var.name, []).append(provider)
@@ -124,7 +128,8 @@ class ConfigSpec(object):
                                savings_map=savings_map,
                                consumer_map=vcm)
 
-        self.sorted_providers = sorted(pkm.items(), key=lambda x: x[-1])
+        sorted_provider_pairs = sorted(pkm.items(), key=lambda x: x[-1])
+        self.sorted_providers = [p[0] for p in sorted_provider_pairs]
 
     @staticmethod
     def _compute_stacked_maps(var_provider_map):
@@ -169,97 +174,43 @@ class ConfigSpec(object):
         return provider_savings
 
 
+# This is now fixin to become an abstract base class, with or without
+# capital letters.
+
 class Config(object):
+    config_spec = None
+
     def __init__(self, env=None, **kwargs):
+        # TODO: sanity check config_spec?
+
         self.env = kwargs.pop('env', None)
         if self.env is None:
             self.env = detect_env()  # TODO: member function?
-        self._layer_types = _ENV_LAYERS_MAP[self.env]  # TODO
-        self._layers = [t() for t in self._layer_types]
-        self._strata_layer = core.StrataLayer(self)
+        #self._layer_types = _ENV_LAYERS_MAP[self.env]  # TODO
 
-        self.deps = {}
-        self.results = {}
+        self._layers = [t() for t in self.config_spec.layerset]
+        layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
+        bound_providers = [p.get_bound(layer_obj_map[p.layer_type]) for p in
+                           self.config_spec.sorted_providers]
+        self._layer_map = layer_obj_map
+        self.providers = bound_providers
+        self._strata_layer = core.StrataLayer(self)
 
         self._cur_vals = {'config': self}
         self._resolved = {'config': Satisfied(self._strata_layer, self)}
         self._unresolved = set()  # buncha TODOs here
-        # TODO: resolved/unresolved with Resolution subtypes
 
-        self._var_provider_map = vpm = {}
-        self._var_consumer_map = vcm = {}
+        self.results = {}
 
-        for layer in self._layers:
-            layer_provides = layer.layer_provides()
-            for var_name, provider in layer_provides.items():
-                vpm.setdefault(var_name, []).append(provider)
-                for dn in provider.dep_names:
-                    vcm.setdefault(dn, []).append(provider)
-
-        self._all_providers = sum(vpm.values(), [])
-        self._all_var_names = vpm.keys()  # TODO: + pre-satisfied?
-
-        # expand out all deps
-        stacked_dep_map = {}  # args across all layers
-        for var, providers in vpm.items():
-            stacked_deps = sum([list(p.dep_names) for p in providers], [])
-            stacked_dep_map[var] = set(stacked_deps)
-
-        stacked_rdep_map = {}  # a var's args, and their args, etc.
-        for var, stacked_deps in stacked_dep_map.items():
-            to_proc, rdeps, i = [var], set(), 0
-            while to_proc:
-                i += 1  # TODO: better circdep handlin
-                if i > 50:
-                    raise Exception('circular deps, I think: %r' % var)
-                cur = to_proc.pop()
-                cur_rdeps = stacked_dep_map.get(cur, [])
-                to_proc.extend(cur_rdeps)
-                rdeps.update(cur_rdeps)
-            stacked_rdep_map[var] = rdeps
-
-        sorted_deps = toposort(stacked_rdep_map)
-
-        provider_rdep_map = {}
-        stack_provider_rdep_map = {}
-        provider_savings = {}
-        for var, providers in vpm.items():
-            for p in providers:
-                deps = p.dep_names
-                rdep_sets = [stacked_rdep_map.get(d, set()) for d in deps]
-                rdep_sets.append(set(deps))
-                p_rdeps = set.union(*rdep_sets)
-                provider_rdep_map[p] = p_rdeps
-                provider_savings[p] = set()
-                sprd_list = stack_provider_rdep_map.setdefault(var, [])
-                if sprd_list:
-                    for prev_p, prev_rdeps in sprd_list:
-                        provider_savings[prev_p].update(p_rdeps)
-                sprd_list.append((p, p_rdeps))
-
-        dep_indices, basic_dep_order = {}, []
-        for level_idx, level in enumerate(sorted_deps):
-            sorted_level = sorted(level)
-            for var_name in sorted_level:
-                dep_indices[var_name] = level_idx
-                basic_dep_order.append(var_name)
-
-        provider_key_map = {}
-        for p in self._all_providers:
-            provider_key_map[p] = p_sortkey(provider=p,
-                                            provider_map=vpm,
-                                            level_idx_map=dep_indices,
-                                            savings_map=provider_savings,
-                                            consumer_map=vcm)
-
-        self.rdo = sorted(provider_key_map.items(), key=lambda x: x[-1])
         self._process()
 
     def _process(self):
-        self._unresolved = set([x for x in self._all_var_names
+        # TODO: need to somehow instantiate the layers in the Providers
+
+        self._unresolved = set([x for x in self.config_spec.all_var_names
                                 if x not in self._resolved])
-        remaining_consumers = dict(self._var_consumer_map)  # TODO
-        for provider, scores in self.rdo:
+        remaining_consumers = dict(self.config_spec.var_consumer_map)  # TODO
+        for provider in self.providers:
             var_name = provider.var_name
             cur_val = self._resolved.get(var_name)
             if isinstance(cur_val, (Satisfied, Pruned)):
@@ -345,8 +296,8 @@ def main():
     layers = _ENV_LAYERS_MAP['dev']
     variables = ez_vars(layers)
     cspec = ConfigSpec(variables, layers)
-    import pdb;pdb.set_trace()
-    conf = Config()
+    conf_type = cspec.make_config()
+    conf = conf_type()
     return conf
 
 
