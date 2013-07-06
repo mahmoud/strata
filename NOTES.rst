@@ -68,3 +68,24 @@ TODO
 * how to avoid global state? ConfigSpec?
 * built-in vs. overridable variables?
 * automatic listing of Layer providing?
+
+
+strategy
+--------
+
+1.1 collect feature flags from overrides, params, args.
+1.2 explicit feature flag step, remove disabled things from dep graph
+
+Concern: shared variables can't be removed outright. needs to remove
+references, not whole variables.
+
+2.1 have a feature flag layer that detects disabled features and
+provides NullConfigs for end deps
+2.2 enable early provides execution (execute a layer's attempt at
+providing a variable as soon as its dependency is available)
+
+Concern: how to mark certain provides as safe to execute eagerly
+rather than lazily? It only makes a difference if dependencies are
+added/removed during fulfillment.
+
+* dynamic depends?
