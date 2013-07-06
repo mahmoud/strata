@@ -15,6 +15,8 @@ arg[ument]
 satisfy
 unsatisfied
 pruned
+slot
+stack
 """
 
 from collections import namedtuple
@@ -109,9 +111,9 @@ class ConfigSpec(object):
         self.all_providers = sum(vpm.values(), [])
         self.all_var_names = sorted(vpm.keys())  # TODO: + pre-satisfied?
 
-        stacked_dep_map = self._compute_stacked_dep_map(vpm)
-        stacked_rdep_map = self._compute_rdep_map(stacked_dep_map)
-        sorted_dep_slots = toposort(stacked_rdep_map)
+        slot_dep_map = self._compute_slot_dep_map(vpm)
+        slot_rdep_map = self._compute_rdep_map(slot_dep_map)
+        sorted_dep_slots = toposort(slot_rdep_map)
         dep_indices, slot_order = {}, []
         for level_idx, level in enumerate(sorted_dep_slots):
             for var_name in level:
@@ -119,7 +121,7 @@ class ConfigSpec(object):
                 slot_order.append(var_name)
         self.slot_order = slot_order
 
-        savings_map = self._compute_savings_map(vpm, stacked_rdep_map)
+        savings_map = self._compute_savings_map(vpm, slot_rdep_map)
 
         pkm = self.provider_key_map = {}
         for p in self.all_providers:
@@ -133,18 +135,18 @@ class ConfigSpec(object):
         self.sorted_providers = [p[0] for p in sorted_provider_pairs]
 
     @staticmethod
-    def _compute_stacked_dep_map(var_provider_map):
-        stacked_dep_map = {}  # args across all layers
+    def _compute_slot_dep_map(var_provider_map):
+        slot_dep_map = {}  # args across all layers
         for var, providers in var_provider_map.items():
-            stacked_deps = sum([list(p.dep_names) for p in providers], [])
-            stacked_dep_map[var] = set(stacked_deps)
-        return stacked_dep_map
+            slot_deps = sum([list(p.dep_names) for p in providers], [])
+            slot_dep_map[var] = set(slot_deps)
+        return slot_dep_map
 
     @staticmethod
     def _compute_rdep_map(dep_map):
         "compute recursive dependency map"
         rdep_map = {}
-        for var, stacked_deps in dep_map.items():
+        for var, slot_deps in dep_map.items():
             to_proc, rdeps, i = [var], set(), 0
             while to_proc:
                 i += 1  # TODO: better circdep handlin
@@ -158,7 +160,7 @@ class ConfigSpec(object):
         return rdep_map
 
     @staticmethod
-    def _compute_savings_map(var_provider_map, stacked_rdep_map):
+    def _compute_savings_map(var_provider_map, slot_rdep_map):
         # aka cost of alternative implementations of a var
         provider_rdep_map = {}
         stack_provider_rdep_map = {}
@@ -166,7 +168,7 @@ class ConfigSpec(object):
         for var, providers in var_provider_map.items():
             for p in providers:
                 deps = p.dep_names
-                rdep_sets = [stacked_rdep_map.get(d, set()) for d in deps]
+                rdep_sets = [slot_rdep_map.get(d, set()) for d in deps]
                 rdep_sets.append(set(deps))
                 p_rdeps = set.union(*rdep_sets)
                 provider_rdep_map[p] = p_rdeps
