@@ -227,11 +227,14 @@ class Config(object):
         cfg_spec = self.config_spec
         ref_tracker = dict([(k, set([p.var_name for p in ps]))
                             for k, ps in cfg_spec.var_consumer_map.items()])
+        for r in self.requirements:
+            rdeps = cfg_spec.slot_rdep_map[r.name]
+            ref_tracker.setdefault(r.name, set()).update(rdeps)
         _cur_vals = {'config': self}
         provider_results = {}
         for provider in self.providers:
             var_name = provider.var_name
-            if ref_tracker.get(var_name) is None:
+            if not ref_tracker.get(var_name):
                 print 'pruning: ', provider, '(no refs)'
                 provider_results[provider] = Pruned()
                 continue
@@ -249,6 +252,7 @@ class Config(object):
                 _cur_vals[var_name] = res
                 for provider_dep_name in cfg_spec.slot_dep_map[var_name]:
                     ref_tracker[provider_dep_name].discard(var_name)
+        import pdb;pdb.set_trace()
 
         self.results = _cur_vals
         self.provider_results = provider_results
