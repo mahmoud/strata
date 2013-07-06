@@ -109,7 +109,8 @@ class ConfigSpec(object):
         self.all_providers = sum(vpm.values(), [])
         self.all_var_names = sorted(vpm.keys())  # TODO: + pre-satisfied?
 
-        stacked_dep_map, stacked_rdep_map = self._compute_stacked_maps(vpm)
+        stacked_dep_map = self._compute_stacked_dep_map(vpm)
+        stacked_rdep_map = self._compute_rdep_map(stacked_dep_map)
         sorted_dep_slots = toposort(stacked_rdep_map)
         dep_indices, slot_order = {}, []
         for level_idx, level in enumerate(sorted_dep_slots):
@@ -132,25 +133,29 @@ class ConfigSpec(object):
         self.sorted_providers = [p[0] for p in sorted_provider_pairs]
 
     @staticmethod
-    def _compute_stacked_maps(var_provider_map):
+    def _compute_stacked_dep_map(var_provider_map):
         stacked_dep_map = {}  # args across all layers
         for var, providers in var_provider_map.items():
             stacked_deps = sum([list(p.dep_names) for p in providers], [])
             stacked_dep_map[var] = set(stacked_deps)
+        return stacked_dep_map
 
-        stacked_rdep_map = {}  # a var's args, and their args, etc.
-        for var, stacked_deps in stacked_dep_map.items():
+    @staticmethod
+    def _compute_rdep_map(dep_map):
+        "compute recursive dependency map"
+        rdep_map = {}
+        for var, stacked_deps in dep_map.items():
             to_proc, rdeps, i = [var], set(), 0
             while to_proc:
                 i += 1  # TODO: better circdep handlin
                 if i > 50:
                     raise Exception('circular deps, I think: %r' % var)
                 cur = to_proc.pop()
-                cur_rdeps = stacked_dep_map.get(cur, [])
+                cur_rdeps = dep_map.get(cur, [])
                 to_proc.extend(cur_rdeps)
                 rdeps.update(cur_rdeps)
-            stacked_rdep_map[var] = rdeps
-        return stacked_dep_map, stacked_rdep_map
+            rdep_map[var] = rdeps
+        return rdep_map
 
     @staticmethod
     def _compute_savings_map(var_provider_map, stacked_rdep_map):
@@ -181,7 +186,7 @@ class Config(object):
     config_spec = None
 
     def __init__(self, env=None, **kwargs):
-        # TODO: sanity check config_spec?
+        # TODO: sanity check config_spec? Or do that in a metaclass?
 
         self.env = kwargs.pop('env', None)
         if self.env is None:
@@ -190,10 +195,9 @@ class Config(object):
 
         self._layers = [t() for t in self.config_spec.layerset]
         layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
-        bound_providers = [p.get_bound(layer_obj_map[p.layer_type]) for p in
-                           self.config_spec.sorted_providers]
         self._layer_map = layer_obj_map
-        self.providers = bound_providers
+        self.providers = [p.get_bound(layer_obj_map[p.layer_type]) for p in
+                          self.config_spec.sorted_providers]
         self._strata_layer = core.StrataLayer(self)
 
         self._cur_vals = {'config': self}
@@ -209,7 +213,7 @@ class Config(object):
 
         self._unresolved = set([x for x in self.config_spec.all_var_names
                                 if x not in self._resolved])
-        remaining_consumers = dict(self.config_spec.var_consumer_map)  # TODO
+        remaining_consumers = dict(self.config_spec.var_consumer_map)
         for provider in self.providers:
             var_name = provider.var_name
             cur_val = self._resolved.get(var_name)
