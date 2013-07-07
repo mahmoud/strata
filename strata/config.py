@@ -147,11 +147,15 @@ class ConfigSpec(object):
         self.sorted_providers = [p[0] for p in sorted_provider_pairs]
 
     @staticmethod
-    def _compute_slot_dep_map(var_provider_map):
+    def _compute_slot_dep_map(var_provider_map, preprovided=None):
+        preprovided = preprovided or set()
         slot_dep_map = {}  # args across all layers
         for var, providers in var_provider_map.items():
-            slot_deps = sum([list(p.dep_names) for p in providers], [])
-            slot_dep_map[var] = set(slot_deps)
+            if var in preprovided:
+                slot_dep_map[var] = set()
+            else:
+                slot_deps = sum([list(p.dep_names) for p in providers], [])
+                slot_dep_map[var] = set(slot_deps)
         return slot_dep_map
 
     @staticmethod
@@ -225,16 +229,22 @@ class Config(object):
         # TODO: what to do about re-processin?
         # TODO: need to provide a way of specifying end-requirements
         cfg_spec = self.config_spec
+        vpm = cfg_spec.var_provider_map
+        req_names = set([v.name for v in self.requirements])
         ref_tracker = dict([(k, set([p.var_name for p in ps]))
                             for k, ps in cfg_spec.var_consumer_map.items()])
-        for r in self.requirements:
-            rdeps = cfg_spec.slot_rdep_map[r.name]
-            ref_tracker.setdefault(r.name, set()).update(rdeps)
+        _rt_cp = dict((k, set(v)) for k, v in ref_tracker.items())
+
+        #all_deps = set(cfg_spec.var_provider_map.keys())
+        #req_rdeps = set(*[v for k, v in cfg_spec.slot_rdep_map.items()])
         _cur_vals = {'config': self}
         provider_results = {}
         for provider in self.providers:
+            cur_deps = ConfigSpec._compute_slot_dep_map(vpm, _cur_vals)
+            cur_rdeps = ConfigSpec._compute_rdep_map(cur_deps)
+            req_rdeps = set.union(*[cur_rdeps[rn] for rn in req_names])
             var_name = provider.var_name
-            if not ref_tracker.get(var_name):
+            if var_name not in req_rdeps:
                 print 'pruning: ', provider, '(no refs)'
                 provider_results[provider] = Pruned()
                 continue
@@ -252,8 +262,8 @@ class Config(object):
                 _cur_vals[var_name] = res
                 for provider_dep_name in cfg_spec.slot_dep_map[var_name]:
                     ref_tracker[provider_dep_name].discard(var_name)
-        import pdb;pdb.set_trace()
-
+                    if not ref_tracker[provider_dep_name]:
+                        pass
         self.results = _cur_vals
         self.provider_results = provider_results
 
