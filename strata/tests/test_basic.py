@@ -1,21 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import sys  # TODO: haaaack
-from os.path import abspath, dirname as dn
-sys.path.append(dn(dn(dn(abspath(__file__)))))
+from pprint import pprint
 
-
-#from strata.config import Config
-from strata.core import Variable, Layer
+import common
+from strata.core import Layer
 from strata.config import ConfigSpec
 
-
-class VarA(Variable):
-    pass
-
-
-class VarB(Variable):
-    pass
+from strata.core import ez_vars  # tmp
 
 
 class FirstLayer(Layer):
@@ -48,7 +39,7 @@ class SecondLayer(Layer):
 
 class ThirdLayer(Layer):
     def var_a(self, var_e):
-        return var_e  # should never get here
+        assert False, 'var_a should have been provided by FirstLayer'
 
     def var_e(self):
         return -1
@@ -58,7 +49,7 @@ BASIC_LAYERS = [FirstLayer, SecondLayer, ThirdLayer]
 
 
 def get_basic_config_spec(layers=BASIC_LAYERS):
-    from strata.core import ez_vars  # tmp
+
     variables = ez_vars(BASIC_LAYERS)
     cspec = ConfigSpec(variables, layers)
     return cspec
@@ -70,6 +61,7 @@ def get_basic_config(req_var_names=None, cspec=None):
     req_vars = [v for v in cspec.variables if v.name in req_var_names]
     return cspec.make_config(reqs=req_vars)
 
+
 def test_basic_vars():
     conf_type = get_basic_config()
     conf = conf_type()
@@ -80,7 +72,6 @@ def test_basic_vars():
     assert res['var_b'] == 2
     assert res['var_c'] == 3
     assert res['var_d'] == 4
-    from pprint import pprint
     pprint(conf.results)
     return conf
 
