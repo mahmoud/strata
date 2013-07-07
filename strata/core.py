@@ -2,7 +2,7 @@
 
 from utils import under2camel, camel2under, get_arg_names
 
-_KNOWN_VARS = {}
+_KNOWN_VARS = {}  # TODO: dispose of
 
 
 class VariableMeta(type):
@@ -107,6 +107,10 @@ class Provider(object):
             self._set_func(layer)
         else:
             self._is_custom_func = True
+        try:
+            self.dep_names = get_arg_names(self.func)
+        except:
+            raise ValueError('unsupported provider type: %r' % self.func)
 
     def _set_func(self, layer):
         self._is_custom_func = False
@@ -115,10 +119,6 @@ class Provider(object):
             self.func = getattr(layer, vn)
         except AttributeError:
             raise ValueError("Layer %r doesn't provide %r" % (layer, vn))
-        try:
-            self.dep_names = get_arg_names(self.func)
-        except:
-            raise ValueError('unsupported provider type: %r' % self.func)
 
     @property
     def is_bound(self):
