@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-
 # TODO: raise exception on **kwarg usage in Provider
-# TODO: gonna tons of negative test cases
 # TODO: variable names can't start with underscore
 
 words:
@@ -23,10 +21,6 @@ from collections import namedtuple
 
 import core
 from utils import inject
-
-# TODO: this has to improve
-from tests.test_basic import FirstLayer, SecondLayer, ThirdLayer
-_ENV_LAYERS_MAP = {'dev': [FirstLayer, SecondLayer, ThirdLayer]}
 
 
 class Resolution(object):
@@ -73,16 +67,9 @@ class LayerSet(object):  # TODO: do-want?
 
 
 class ConfigSpec(object):
-    def __init__(self, variables, layerset):  # TODO: defer option?
+    def __init__(self, variables, layerset):
         self.layerset = layerset
         self.variables = list(variables or [])
-        # default maps/indexes
-
-        # var_provider_map
-        # var_consumer_map
-        # all_providers
-        # all_var_names
-
         self._compute()
 
     @classmethod
@@ -127,7 +114,7 @@ class ConfigSpec(object):
                     vcm.setdefault(dn, []).append(provider)
 
         self.all_providers = sum(vpm.values(), [])
-        self.all_var_names = sorted(vpm.keys())  # TODO: + pre-satisfied?
+        self.all_var_names = sorted(vpm.keys())
 
         sdm = self.slot_dep_map = self._compute_slot_dep_map(vpm)
         srdm = self.slot_rdep_map = self._compute_rdep_map(sdm)
@@ -233,7 +220,6 @@ class Config(object):
 
     def _process(self):
         # TODO: what to do about re-processin?
-        # TODO: need to provide a way of specifying end-requirements
         cfg_spec = self.config_spec
         vpm = cfg_spec.var_provider_map
         req_names = set([v.name for v in self.requirements])
@@ -325,20 +311,3 @@ def toposort(dep_map):
     if remaining:
         raise ValueError('unresolvable dependencies: %r' % remaining)
     return ret
-
-
-def main():
-    from core import ez_vars  # tmp
-    layers = _ENV_LAYERS_MAP['dev']
-    variables = ez_vars(layers)
-    var_d = [v for v in variables if v.name == 'var_d'][0]
-    cspec = ConfigSpec(variables, layers)
-    conf_type = cspec.make_config(reqs=[var_d])
-    conf = conf_type()
-    from pprint import pprint
-    pprint(conf.results)
-    return conf
-
-
-if __name__ == '__main__':
-    main()
