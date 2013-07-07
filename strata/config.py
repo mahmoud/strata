@@ -237,7 +237,7 @@ class Config(object):
         for provider in self.providers:
             cur_deps = ConfigSpec._compute_slot_dep_map(vpm, _cur_vals)
             cur_rdeps = ConfigSpec._compute_rdep_map(cur_deps)
-            req_rdeps = set.union(*[cur_rdeps[rn] for rn in req_names])
+            req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
             var_name = provider.var_name
             if var_name not in req_rdeps:
                 print 'pruning: ', provider, '(no refs)'
@@ -324,6 +324,8 @@ def main():
     cspec = ConfigSpec(variables, layers)
     conf_type = cspec.make_config(reqs=[var_d])
     conf = conf_type()
+    from pprint import pprint
+    pprint(conf.results)
     return conf
 
 
