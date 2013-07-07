@@ -89,3 +89,21 @@ rather than lazily? It only makes a difference if dependencies are
 added/removed during fulfillment.
 
 * dynamic depends?
+
+
+Validators
+----------
+
+* Quantity
+
+  * Doesn't matter (default)
+  * One or none
+  * One or more
+  * Zero or more
+  * Specific number
+  * Singular scalar (maybe?)
+
+* File-based
+
+  * is file/dir/link
+  * is readable/writable
