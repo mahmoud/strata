@@ -46,16 +46,6 @@ class Unsatisfied(Resolution):
     pass
 
 
-class LayerSet(object):  # TODO: do-want?
-    def __init__(self, env_name, layers):
-        self.env_name = env_name
-        self.layers = list(layers)
-
-    def __repr__(self):
-        cn = self.__class__.__name__
-        return '%s(%r, %r)' % (cn, self.env_name, self.layers)
-
-
 # Gonna need a separate env-aware ConfigSpec thing, so as not to make
 # the following too complex. That one will prolly have:
 #     def get_config_type(self):
@@ -103,7 +93,7 @@ class ConfigSpec(object):
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
 
-        for layer in self.layerset:
+        for layer in self.layerset.layers:
             for var in self.variables + requirements:
                 try:
                     provider = layer._get_provider(var)
@@ -201,13 +191,14 @@ class Config(object):
     def __init__(self, env=None, **kwargs):
         # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
+        cfg_spec = self.config_spec
         self.deferred = kwargs.pop('_defer', self.default_defer)
 
-        self._layers = [t() for t in self.config_spec.layerset]
-        layer_obj_map = dict(zip(self.config_spec.layerset, self._layers))
+        self._layers = [t() for t in cfg_spec.layerset.layers]
+        layer_obj_map = dict(zip(cfg_spec.layerset.layers, self._layers))
         self._layer_map = layer_obj_map
         self.providers = [p.get_bound(layer_obj_map[p.layer_type])
-                          for p in self.config_spec.sorted_providers]
+                          for p in cfg_spec.sorted_providers]
         self._strata_layer = core.StrataLayer(self)
 
         self._resolved = {'config': Satisfied(self._strata_layer, self)}

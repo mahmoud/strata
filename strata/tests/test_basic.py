@@ -3,7 +3,7 @@
 from pprint import pprint
 
 import common
-from strata.core import Layer
+from strata.core import Layer, LayerSet
 from strata.config import ConfigSpec
 
 from strata.core import ez_vars  # tmp
@@ -45,12 +45,12 @@ class ThirdLayer(Layer):
         return -1
 
 
-BASIC_LAYERS = [FirstLayer, SecondLayer, ThirdLayer]
+BASIC_LAYERSET = LayerSet('default', [FirstLayer, SecondLayer, ThirdLayer])
 
 
-def get_basic_config_spec(layers=BASIC_LAYERS):
-    variables = ez_vars(BASIC_LAYERS)
-    cspec = ConfigSpec(variables, layers)
+def get_basic_config_spec(layerset=BASIC_LAYERSET):
+    variables = ez_vars(layerset)
+    cspec = ConfigSpec(variables, layerset)
     return cspec
 
 

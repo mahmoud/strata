@@ -35,14 +35,14 @@ class Variable(object):
         pass  # TODO
 
 
-def ez_vars(layers):
+def ez_vars(layerset):
     """
     A (most likely temporary) utility function to make Variables off
     of Layer definitions. Something like this should maybe exist in
     the future, using decorators.
     """
     names = set()
-    for layer in layers:
+    for layer in layerset.layers:
         for name in dir(layer):
             if name.startswith('_'):
                 continue
@@ -69,6 +69,17 @@ class StrataLayer(Layer):
 
     def config(self):
         return self._config
+
+
+class LayerSet(object):
+    def __init__(self, env_name, layers):
+        # TODO: assert all Layers are unique types?
+        self.env_name = env_name
+        self.layers = list(layers)
+
+    def __repr__(self):
+        cn = self.__class__.__name__
+        return '%s(%r, %r)' % (cn, self.env_name, self.layers)
 
 
 class Provider(object):
