@@ -49,7 +49,6 @@ BASIC_LAYERS = [FirstLayer, SecondLayer, ThirdLayer]
 
 
 def get_basic_config_spec(layers=BASIC_LAYERS):
-
     variables = ez_vars(BASIC_LAYERS)
     cspec = ConfigSpec(variables, layers)
     return cspec
@@ -68,6 +67,7 @@ def test_basic_vars():
     res = conf.results
     expected_keys = set(['var_a', 'var_b', 'var_c', 'var_d', 'config'])
     assert set(res.keys()) == expected_keys
+    assert all([v >= 0 for v in res.values()])
     assert res['var_a'] == 0
     assert res['var_b'] == 2
     assert res['var_c'] == 3
