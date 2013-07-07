@@ -144,10 +144,3 @@ class FileValue(object):
     def __init__(self, value, file_path):
         self.value = value
         self.file_path = file_path
-
-
-if __name__ == '__main__':
-    class MyVar(Variable):
-        pass
-
-    print MyVar.name
