@@ -7,6 +7,7 @@ sys.path.append(dn(dn(dn(abspath(__file__)))))
 
 #from strata.config import Config
 from strata.core import Variable, Layer
+from strata.config import ConfigSpec
 
 
 class VarA(Variable):
@@ -51,3 +52,38 @@ class ThirdLayer(Layer):
 
     def var_e(self):
         return -1
+
+
+BASIC_LAYERS = [FirstLayer, SecondLayer, ThirdLayer]
+
+
+def get_basic_config_spec(layers=BASIC_LAYERS):
+    from strata.core import ez_vars  # tmp
+    variables = ez_vars(BASIC_LAYERS)
+    cspec = ConfigSpec(variables, layers)
+    return cspec
+
+
+def get_basic_config(req_var_names=None, cspec=None):
+    req_var_names = set(req_var_names or ['var_d'])
+    cspec = cspec or get_basic_config_spec()
+    req_vars = [v for v in cspec.variables if v.name in req_var_names]
+    return cspec.make_config(reqs=req_vars)
+
+def test_basic_vars():
+    conf_type = get_basic_config()
+    conf = conf_type()
+    res = conf.results
+    expected_keys = set(['var_a', 'var_b', 'var_c', 'var_d', 'config'])
+    assert set(res.keys()) == expected_keys
+    assert res['var_a'] == 0
+    assert res['var_b'] == 2
+    assert res['var_c'] == 3
+    assert res['var_d'] == 4
+    from pprint import pprint
+    pprint(conf.results)
+    return conf
+
+
+if __name__ == '__main__':
+    test_basic_vars()
