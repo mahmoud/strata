@@ -235,6 +235,7 @@ class Config(object):
         _cur_vals = {'config': self}
         provider_results = {}
         for provider in self.providers:
+            # TODO: only recompute the following on satisfaction?
             cur_deps = ConfigSpec._compute_slot_dep_map(vpm, _cur_vals)
             cur_rdeps = ConfigSpec._compute_rdep_map(cur_deps)
             req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
@@ -257,6 +258,10 @@ class Config(object):
                 _cur_vals[var_name] = res
         self.results = _cur_vals
         self.provider_results = provider_results
+        self._unresolved = req_rdeps - set(self.results)
+
+        if self._unresolved:
+            raise Exception('could not resolve: %r' % sorted(self._unresolved))
 
 
 # ProviderSortKey
