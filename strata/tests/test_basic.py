@@ -49,6 +49,9 @@ BASIC_LAYERSET = LayerSet('default', [FirstLayer, SecondLayer, ThirdLayer])
 
 
 def get_basic_config_spec(layerset=BASIC_LAYERSET):
+    assert repr(layerset)
+    assert list(layerset)
+    assert layerset[0] is FirstLayer
     variables = ez_vars(layerset)
     cspec = ConfigSpec(variables, layerset)
     return cspec

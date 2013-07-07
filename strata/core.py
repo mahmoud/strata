@@ -81,6 +81,12 @@ class LayerSet(object):
         cn = self.__class__.__name__
         return '%s(%r, %r)' % (cn, self.env_name, self.layers)
 
+    def __iter__(self):
+        return iter(self.layers)
+
+    def __getitem__(self, key):
+        return self.layers.__getitem__(key)
+
 
 class Provider(object):
     """\
