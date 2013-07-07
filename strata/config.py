@@ -53,7 +53,13 @@ class Unsatisfied(Resolution):
 
 
 class LayerSet(object):  # TODO: do-want?
-    pass
+    def __init__(self, env_name, layers):
+        self.env_name = env_name
+        self.layers = list(layers)
+
+    def __repr__(self):
+        cn = self.__class__.__name__
+        return '%s(%r, %r)' % (cn, self.env_name, self.layers)
 
 
 # Gonna need a separate env-aware ConfigSpec thing, so as not to make
