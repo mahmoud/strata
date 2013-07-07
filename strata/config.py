@@ -231,12 +231,7 @@ class Config(object):
         cfg_spec = self.config_spec
         vpm = cfg_spec.var_provider_map
         req_names = set([v.name for v in self.requirements])
-        ref_tracker = dict([(k, set([p.var_name for p in ps]))
-                            for k, ps in cfg_spec.var_consumer_map.items()])
-        _rt_cp = dict((k, set(v)) for k, v in ref_tracker.items())
 
-        #all_deps = set(cfg_spec.var_provider_map.keys())
-        #req_rdeps = set(*[v for k, v in cfg_spec.slot_rdep_map.items()])
         _cur_vals = {'config': self}
         provider_results = {}
         for provider in self.providers:
@@ -260,10 +255,6 @@ class Config(object):
             else:
                 provider_results[provider] = Satisfied(by=provider, value=res)
                 _cur_vals[var_name] = res
-                for provider_dep_name in cfg_spec.slot_dep_map[var_name]:
-                    ref_tracker[provider_dep_name].discard(var_name)
-                    if not ref_tracker[provider_dep_name]:
-                        pass
         self.results = _cur_vals
         self.provider_results = provider_results
 
