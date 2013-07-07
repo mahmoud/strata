@@ -20,8 +20,7 @@ class CLILayer(Layer):
     @classmethod
     def _make_parsed_arg_getter(cls, var_name):
         def _get_parsed_arg(parsed_args):
-            kwargs, pos = parsed_args
-            return getattr(kwargs, var_name)
+            return getattr(parsed_args, var_name)
         return _get_parsed_arg
 
     def argparser(self, config):
