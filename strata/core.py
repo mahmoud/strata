@@ -2,8 +2,6 @@
 
 from utils import under2camel, camel2under, get_arg_names
 
-_KNOWN_VARS = {}  # TODO: dispose of
-
 
 class VariableMeta(type):
     def __new__(cls, name, base, attrs):
@@ -11,9 +9,6 @@ class VariableMeta(type):
             attrs['name'] = camel2under(name)
         inst = super(VariableMeta, cls).__new__(cls, name,  base, attrs)
 
-        if inst.name in _KNOWN_VARS:
-            print 'config variable collision: %r' % inst.name
-        _KNOWN_VARS[inst.name] = inst
         return inst
 
 
