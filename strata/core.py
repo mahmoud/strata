@@ -17,11 +17,8 @@ class Variable(object):
     __metaclass__ = VariableMeta
 
     name = None
-    var_type = None  # TODO?
+    var_type = None
     short_desc = "default Variable class short description"
-
-    is_cli_arg = False  # TODO?
-    is_config_param = False
 
     def get_default(self, config):
         raise KeyError('no default specified for: %s' % self.name)
