@@ -47,3 +47,15 @@ class CLILayer(Layer):
 
     def parsed_args(self, argparser):
         return argparser.parse_known_args()[0]
+
+
+class KwargLayer(Layer):
+    @classmethod
+    def _get_provider(cls, variable):
+        if not getattr(variable, 'is_config_kwarg', None):
+            raise ValueError('not a config kwarg: %r' % variable)
+
+        def _get_config_kwarg(config):
+            return config.kwargs[variable.name]
+
+        return Provider(cls, variable.name, _get_config_kwarg)

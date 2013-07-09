@@ -194,6 +194,8 @@ class Config(object):
         cfg_spec = self.config_spec
         self.deferred = kwargs.pop('_defer', self.default_defer)
 
+        self.kwargs = dict(kwargs)
+
         self._layers = [t() for t in cfg_spec.layerset.layers]
         layer_obj_map = dict(zip(cfg_spec.layerset.layers, self._layers))
         self._layer_map = layer_obj_map
