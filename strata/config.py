@@ -30,7 +30,7 @@ class Resolution(object):
 
     def __repr__(self):
         cn = self.__class__.__name__
-        return '%s(by=%r)' % (cn, self.by)
+        return '%s(by=%r, value=%r)' % (cn, self.by, self.value)
 
 
 class Pruned(Resolution):
@@ -48,9 +48,6 @@ class Unsatisfied(Resolution):
 
 # Gonna need a separate env-aware ConfigSpec thing, so as not to make
 # the following too complex. That one will prolly have:
-#     def get_config_type(self):
-#        # TODO: specify requirements here?
-#        pass
 #     @property
 #     def env_layer_map(self):
 #        return dict([(ls.env, ls.layers) for ls in self.layersets])
@@ -85,7 +82,7 @@ class ConfigSpec(object):
         attrs = {'config_spec': self,
                  'requirements': reqs,
                  'default_defer': default_defer}
-        return type('Config', (Config,), attrs)
+        return type(name, (Config,), attrs)
 
     def _compute(self, requirements=None):
         requirements = requirements or []
@@ -188,7 +185,7 @@ class Config(object):
     requirements = None
     default_defer = False
 
-    def __init__(self, env=None, **kwargs):
+    def __init__(self, **kwargs):
         # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
         cfg_spec = self.config_spec
