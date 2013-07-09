@@ -94,6 +94,8 @@ added/removed during fulfillment.
 Validators
 ----------
 
+(most likely "post-processors" not just validators)
+
 * Quantity
 
   * Doesn't matter (default)
@@ -107,3 +109,8 @@ Validators
 
   * is file/dir/link
   * is readable/writable
+
+* Primitive types
+
+  * numeric type (int/float) with range limit
+  * "choices"/enumeration
