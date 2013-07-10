@@ -4,27 +4,35 @@ from utils import under2camel, camel2under, get_arg_names
 
 
 class VariableMeta(type):
-    def __new__(cls, name, base, attrs):
+    def __new__(mcls, name, bases, attrs):
         if not attrs.get('name'):
             attrs['name'] = camel2under(name)
-        inst = super(VariableMeta, cls).__new__(cls, name,  base, attrs)
+        cls = super(VariableMeta, mcls).__new__(mcls, name, bases, attrs)
 
-        return inst
+        cls.description = getattr(cls, 'description', cls.__doc__) or ''
+        default_summary = (cls.description.splitlines() or [''])[0][:60]
+        cls.summary = getattr(cls, 'summary', default_summary)
+
+        return cls
 
 
 class Variable(object):
-    "default Variable class description docstring."
     __metaclass__ = VariableMeta
 
     name = None
-    var_type = None
-    short_desc = "default Variable class short description"
+    value_type = None
 
-    def get_default(self, config):
-        raise KeyError('no default specified for: %s' % self.name)
+    def get_default(self):
+        try:
+            return self.default
+        except AttributeError:
+            # TODO: custom exception
+            raise KeyError('no default specified for: %s' % self.name)
 
-    def validate(self, config):
-        pass  # TODO
+    def process_value(self, value):
+        if self.value_type:
+            return self.value_type(value)
+        return value
 
 
 def ez_vars(layerset):
