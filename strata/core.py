@@ -6,8 +6,12 @@ from errors import MissingValue, ProviderError
 
 class VariableMeta(type):
     def __new__(mcls, name, bases, attrs):
-        if not attrs.get('name'):
-            attrs['name'] = camel2under(name)
+        n_attr = attrs.get('name')
+        if not n_attr:
+            n_attr = attrs['name'] = camel2under(name)
+        if n_attr.startswith('_'):
+            msg = 'Variable name cannot start with underscore: %r' % n_attr
+            raise TypeError(msg)
         cls = super(VariableMeta, mcls).__new__(mcls, name, bases, attrs)
 
         cls.description = getattr(cls, 'description', cls.__doc__) or ''

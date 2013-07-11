@@ -2,7 +2,6 @@
 
 """
 # TODO: raise exception on **kwarg usage in Provider?
-# TODO: variable names can't start with underscore
 
 words:
 
