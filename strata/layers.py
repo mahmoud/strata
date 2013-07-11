@@ -4,9 +4,27 @@ from argparse import ArgumentParser
 
 from core import Layer, Provider
 from errors import ProviderError
+from utils import make_sentinel
+
+
+_MISSING = make_sentinel()
+
+
+class KwargLayer(Layer):
+    @classmethod
+    def _get_provider(cls, variable):
+        if not getattr(variable, 'is_config_kwarg', None):
+            raise ProviderError('not a config kwarg: %r' % variable)
+
+        def _get_config_kwarg(config):
+            return config.kwargs[variable.name]
+
+        return Provider(cls, variable.name, _get_config_kwarg)
 
 
 class CLILayer(Layer):
+    _allowed_actions = ('store', 'append', 'count')
+
     def __init__(self, desc=None):
         self.parser_desc = desc
 
@@ -31,8 +49,8 @@ class CLILayer(Layer):
             is_cli_arg = getattr(var, 'is_cli_arg', None)
             arg_name = getattr(var, 'cli_arg_name', None)
             short_arg_name = getattr(var, 'cli_short_arg_name', None)
-            action = getattr(var, 'cli_action', None)  # store, append, count
-            const = getattr(var, 'cli_const', None)
+            action = getattr(var, 'cli_action', _MISSING)
+            const = getattr(var, 'cli_const', _MISSING)
             if not (arg_name or short_arg_name):
                 if is_cli_arg:
                     arg_name = var.var_name
@@ -43,20 +61,28 @@ class CLILayer(Layer):
                 norf.append('--' + arg_name)
             if short_arg_name:
                 norf.append('-' + short_arg_name)
-            prs.add_argument(*norf, dest=var.name, required=False)
+            kwargs = {'dest': var.name,
+                      'required': False}
+            if action is _MISSING:
+                action = 'store'
+            else:
+                if action not in self._allowed_actions:
+                    msg = ('unrecognized CLI action: %r (expected one of %r)' %
+                           (action, self._allowed_actions))
+                    raise Exception(msg)
+            if const is not _MISSING and action != 'count':
+                kwargs['action'] = '%s_const' % action
+                kwargs['const'] = const
+            else:
+                kwargs['action'] = action
+            prs.add_argument(*norf, **kwargs)
         return prs
 
     def parsed_args(self, argparser):
         return argparser.parse_known_args()[0]
 
+    def cli_help_summary(self, argparser):
+        return argparser.format_usage()
 
-class KwargLayer(Layer):
-    @classmethod
-    def _get_provider(cls, variable):
-        if not getattr(variable, 'is_config_kwarg', None):
-            raise ProviderError('not a config kwarg: %r' % variable)
-
-        def _get_config_kwarg(config):
-            return config.kwargs[variable.name]
-
-        return Provider(cls, variable.name, _get_config_kwarg)
+    def cli_help(self, argparser):
+        return argparser.format_help()
