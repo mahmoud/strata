@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from utils import under2camel, camel2under, get_arg_names
+from errors import MissingValue, ProviderError
 
 
 class VariableMeta(type):
@@ -26,8 +27,7 @@ class Variable(object):
         try:
             return self.default
         except AttributeError:
-            # TODO: custom exception
-            raise KeyError('no default specified for: %s' % self.name)
+            raise MissingValue('no default specified for: %s' % self.name)
 
     def process_value(self, value):
         if self.value_type:
@@ -46,8 +46,6 @@ def ez_vars(layerset):
         for name in dir(layer):
             if name.startswith('_'):
                 continue
-            if name == 'layer_provides':
-                continue  # TODO: tmp
             names.add(under2camel(name))
     return [VariableMeta(n, (Variable,), {}) for n in sorted(names)]
 
@@ -110,7 +108,7 @@ class Provider(object):
         try:
             self.dep_names = get_arg_names(self.func)
         except:
-            raise ValueError('unsupported provider type: %r' % self.func)
+            raise ProviderError('unsupported provider type: %r' % self.func)
 
     def _set_func(self, layer):
         self._is_custom_func = False
@@ -118,7 +116,7 @@ class Provider(object):
         try:
             self.func = getattr(layer, vn)
         except AttributeError:
-            raise ValueError("Layer %r doesn't provide %r" % (layer, vn))
+            raise ProviderError("Layer %r doesn't provide %r" % (layer, vn))
 
     @property
     def is_bound(self):

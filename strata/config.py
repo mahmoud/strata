@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-# TODO: raise exception on **kwarg usage in Provider
+# TODO: raise exception on **kwarg usage in Provider?
 # TODO: variable names can't start with underscore
 
 words:
@@ -21,6 +21,7 @@ from collections import namedtuple
 
 import core
 from utils import inject
+from errors import ConfigException, ProviderError
 
 
 class Resolution(object):
@@ -94,7 +95,7 @@ class ConfigSpec(object):
             for var in self.variables + requirements:
                 try:
                     provider = layer._get_provider(var)
-                except ValueError:  # TODO: custom error
+                except ProviderError:
                     continue
                 vpm.setdefault(var.name, []).append(provider)
                 for dn in provider.dep_names:
@@ -243,7 +244,8 @@ class Config(object):
         self._unresolved = req_rdeps - set(self.results)
 
         if self._unresolved:
-            raise Exception('could not resolve: %r' % sorted(self._unresolved))
+            sorted_unres = sorted(self._unresolved)
+            raise ConfigException('could not resolve: %r' % sorted_unres)
 
 
 # ProviderSortKey

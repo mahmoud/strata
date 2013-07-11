@@ -13,5 +13,13 @@ class MissingValue(ConfigValueError):
     pass
 
 
-class InvalidProvider(ConfigException, TypeError):
+class InvalidValue(ConfigValueError):
+    pass
+
+
+class LayerError(ConfigException, TypeError):
+    pass
+
+
+class ProviderError(ConfigException, TypeError):
     pass
