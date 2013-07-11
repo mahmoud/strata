@@ -8,6 +8,7 @@ from strata.layers import CLILayer, KwargLayer
 
 
 class VarOne(Variable):
+    "the best variable, it is known"
     cli_arg_name = 'one'
     is_config_kwarg = True
 
@@ -19,20 +20,22 @@ class VarTwo(Variable):
 def get_cli_config_spec(layerset=None):
     layerset = layerset or LayerSet('cli_set', [KwargLayer, CLILayer])
     variables = [VarOne, VarTwo] + ez_vars(layerset)
+    import pdb;pdb.set_trace()
     cspec = ConfigSpec(variables, layerset)
     return cspec
 
 
 def get_cli_config(req_var_names=None):
-    req_var_names = req_var_names or ['var_one', 'var_two']
+    req_var_names = req_var_names or ['var_one', 'var_two', 'cli_help']
     cspec = get_cli_config_spec()
     req_vars = [v for v in cspec.variables if v.name in req_var_names]
     return cspec.make_config(reqs=req_vars)
 
 
 def test_cli():
-    config = get_cli_config()
-    config(var_one='var_one is #1! USA! USA!')
+    TestConfig = get_cli_config()
+    config = TestConfig(var_one='var_one is #1! USA! USA!')
+    print config.results['cli_help']
     return config
 
 
