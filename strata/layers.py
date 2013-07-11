@@ -75,6 +75,7 @@ class CLILayer(Layer):
                 kwargs['const'] = const
             else:
                 kwargs['action'] = action
+            kwargs['help'] = var.summary
             prs.add_argument(*norf, **kwargs)
         return prs
 

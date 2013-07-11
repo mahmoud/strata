@@ -14,9 +14,9 @@ class VariableMeta(type):
             raise TypeError(msg)
         cls = super(VariableMeta, mcls).__new__(mcls, name, bases, attrs)
 
-        cls.description = getattr(cls, 'description', cls.__doc__) or ''
+        cls.description = getattr(cls, 'description', '') or cls.__doc__ or ''
         default_summary = (cls.description.splitlines() or [''])[0][:60]
-        cls.summary = getattr(cls, 'summary', default_summary)
+        cls.summary = getattr(cls, 'summary', '') or default_summary
 
         return cls
 
