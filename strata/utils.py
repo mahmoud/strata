@@ -57,3 +57,20 @@ def inject(f, injectables):
 
     kwargs = dict([(k, v) for k, v in all_kwargs.items() if k in arg_names])
     return f(**kwargs)
+
+
+def make_sentinel(name='_MISSING', var_name=None):
+    class Sentinel(object):
+        def __init__(self):
+            self.name = name
+            self.var_name = var_name
+        def __repr__(self):
+            if self.var_name:
+                return self.var_name
+            return '%s(%r)' % (self.__class__.__name__, self.name)
+        if var_name:
+            def __reduce__(self):
+                return self.var_name
+        def __nonzero__(self):
+            return False
+    return Sentinel()
