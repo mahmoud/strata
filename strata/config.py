@@ -69,7 +69,7 @@ class ConfigSpec(object):
         return cls()
 
     def make_config(self, name=None, reqs=None, default_defer=False):
-        name = name or 'FancyConfig'  # TODO, clearly
+        name = name or 'Config'
         reqs = set(self.variables) if reqs is None else set(reqs)
 
         # check requirements
@@ -82,7 +82,7 @@ class ConfigSpec(object):
         attrs = {'config_spec': self,
                  'requirements': reqs,
                  'default_defer': default_defer}
-        return type(name, (Config,), attrs)
+        return type(name, (BaseConfig,), attrs)
 
     def _compute(self, requirements=None):
         requirements = requirements or []
@@ -180,7 +180,7 @@ class ConfigSpec(object):
 # This is now fixin to become an abstract base class, with or without
 # capital letters.
 
-class Config(object):
+class BaseConfig(object):
     config_spec = None
     requirements = None
     default_defer = False
@@ -201,7 +201,7 @@ class Config(object):
         self._strata_layer = core.StrataLayer(self)
 
         self._resolved = {'config': Satisfied(self._strata_layer, self)}
-        self._unresolved = set()  # buncha TODOs here
+        self._unresolved = set()
 
         self.results = {}
 
