@@ -5,9 +5,13 @@ class ConfigException(Exception):
     pass
 
 
-class ParseError(ConfigException):
+class ConfigValueError(ConfigException, ValueError):
     pass
 
 
-class MissingValueError(ConfigException):
+class MissingValue(ConfigValueError):
+    pass
+
+
+class InvalidProvider(ConfigException, TypeError):
     pass
