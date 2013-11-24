@@ -204,7 +204,7 @@ class BaseConfig(object):
                           for p in cfg_spec.sorted_providers]
         self._strata_layer = core.StrataLayer(self)
 
-        self._resolved = {'config': Satisfied(self._strata_layer, self)}
+        self.provider_results = {'config': Satisfied(self._strata_layer, self)}
         self._unresolved = set()
 
         self.results = {}
@@ -218,8 +218,8 @@ class BaseConfig(object):
         vpm = cfg_spec.var_provider_map
         req_names = set([v.name for v in self.requirements])
 
-        _cur_vals = {'config': self}
-        provider_results = {}
+        provider_results = self.provider_results
+        _cur_vals = dict([(k, pr.value) for k, pr in provider_results.items()])
         for provider in self.providers:
             # TODO: only recompute the following on satisfaction?
             cur_deps = ConfigSpec._compute_slot_dep_map(vpm, _cur_vals)
