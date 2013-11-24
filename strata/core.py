@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+DEBUG = True
+
 from utils import under2camel, camel2under, get_arg_names
 from errors import MissingValue, ProviderError
 

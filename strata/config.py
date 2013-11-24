@@ -19,6 +19,7 @@ stack
 from collections import namedtuple
 
 import core
+from core import DEBUG
 from utils import inject
 from errors import ConfigException, ProviderError
 
@@ -177,6 +178,9 @@ class ConfigSpec(object):
         return provider_savings
 
 
+# TODO: need to make Layers instantiated things instead of
+# autoinstantiated in BaseConfig
+
 # This is now fixin to become an abstract base class, with or without
 # capital letters.
 
@@ -223,17 +227,20 @@ class BaseConfig(object):
             req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
             var_name = provider.var_name
             if var_name not in req_rdeps:
-                print 'pruning: ', provider, '(no refs)'
+                if DEBUG:
+                    print 'pruning: ', provider, '(no refs)'
                 provider_results[provider] = Pruned()
                 continue
             elif var_name in _cur_vals:
-                print 'pruning:', provider, '(already satisfied)'
+                if DEBUG:
+                    print 'pruning:', provider, '(already satisfied)'
                 provider_results[provider] = Pruned()
                 continue
             try:
                 res = inject(provider.func, _cur_vals)
             except Exception as e:
-                print 'exception:', repr(e)
+                if DEBUG:
+                    print 'exception:', repr(e)
                 provider_results[provider] = Unsatisfied(by=provider, value=e)
             else:
                 provider_results[provider] = Satisfied(by=provider, value=res)
