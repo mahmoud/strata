@@ -29,12 +29,16 @@ class CLILayer(Layer):
         self.parser_desc = desc
 
     @classmethod
-    def _get_provider(cls, variable):
+    def _get_provider(cls, var):
         try:
-            return super(CLILayer, cls)._get_provider(variable)
-        except ProviderError:
-            var_getter = cls._make_parsed_arg_getter(variable.name)
-            return Provider(cls, variable.name, var_getter)
+            return super(CLILayer, cls)._get_provider(var)
+        except ProviderError as pe:
+            pass
+        arg_name, short_arg_name = cls._get_cli_arg_names(var)
+        if arg_name or short_arg_name:
+            var_getter = cls._make_parsed_arg_getter(var.name)
+            return Provider(cls, var.name, var_getter)
+        raise pe
 
     @classmethod
     def _make_parsed_arg_getter(cls, var_name):
@@ -42,20 +46,27 @@ class CLILayer(Layer):
             return getattr(parsed_args, var_name)
         return _get_parsed_arg
 
+    @staticmethod
+    def _get_cli_arg_names(var):
+        is_cli_arg = getattr(var, 'is_cli_arg', None)
+        long_name = getattr(var, 'cli_arg_name', None)
+        short_name = getattr(var, 'cli_short_arg_name', None)
+        if not (long_name or short_name):
+            if is_cli_arg:
+                long_name = var.var_name
+            else:
+                long_name = None
+        return long_name, short_name
+
     def argparser(self, config):
         # TODO: nargs?
         prs = ArgumentParser(description=self.parser_desc)
         for var in config.config_spec.variables:
-            is_cli_arg = getattr(var, 'is_cli_arg', None)
-            arg_name = getattr(var, 'cli_arg_name', None)
-            short_arg_name = getattr(var, 'cli_short_arg_name', None)
+            arg_name, short_arg_name = self._get_cli_arg_names(var)
+            if not arg_name and not short_arg_name:
+                continue
             action = getattr(var, 'cli_action', _MISSING)
             const = getattr(var, 'cli_const', _MISSING)
-            if not (arg_name or short_arg_name):
-                if is_cli_arg:
-                    arg_name = var.var_name
-                else:
-                    continue
             norf = []
             if arg_name:
                 norf.append('--' + arg_name)
