@@ -20,7 +20,6 @@ class VarTwo(Variable):
 def get_cli_config_spec(layerset=None):
     layerset = layerset or LayerSet('cli_set', [KwargLayer, CLILayer])
     variables = [VarOne, VarTwo] + ez_vars(layerset)
-    import pdb;pdb.set_trace()
     cspec = ConfigSpec(variables, layerset)
     return cspec
 
@@ -36,6 +35,7 @@ def test_cli():
     TestConfig = get_cli_config()
     config = TestConfig(var_one='var_one is #1! USA! USA!')
     print config.results['cli_help']
+    print config.results['var_one'], config.results['var_two']
     return config
 
 

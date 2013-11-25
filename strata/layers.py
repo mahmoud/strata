@@ -42,8 +42,8 @@ class CLILayer(Layer):
 
     @classmethod
     def _make_parsed_arg_getter(cls, var_name):
-        def _get_parsed_arg(parsed_args):
-            return getattr(parsed_args, var_name)
+        def _get_parsed_arg(cli_parsed_args):
+            return getattr(cli_parsed_args, var_name)
         return _get_parsed_arg
 
     @staticmethod
@@ -90,7 +90,7 @@ class CLILayer(Layer):
             prs.add_argument(*norf, **kwargs)
         return prs
 
-    def parsed_args(self, argparser):
+    def cli_parsed_args(self, argparser):
         return argparser.parse_known_args()[0]
 
     def cli_help_summary(self, argparser):
