@@ -86,13 +86,17 @@ class ConfigSpec(object):
         return type(name, (BaseConfig,), attrs)
 
     def _compute(self, requirements=None):
+        # is requirements necessary here?
         requirements = requirements or []
         # raise on insufficient providers
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
 
+        reqs = list(self.variables)
+        reqs.extend([r for r in requirements if r not in self.variables])
+
         for layer in self.layerset.layers:
-            for var in self.variables + requirements:
+            for var in reqs:
                 try:
                     provider = layer._get_provider(var)
                 except ProviderError:
