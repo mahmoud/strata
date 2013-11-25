@@ -16,12 +16,23 @@ slot
 stack
 """
 
+from itertools import chain
 from collections import namedtuple
 
-import core
-from core import DEBUG
+
+from core import Layer, DEBUG
 from utils import inject
 from errors import ConfigException, ProviderError
+
+
+class StrataLayer(Layer):
+    _autoprovided = ['config']
+
+    def __init__(self, config):
+        self._config = config
+
+    def config(self):
+        return self._config
 
 
 class Resolution(object):
@@ -69,6 +80,9 @@ class ConfigSpec(object):
         """
         return cls()
 
+    def get_layers(self):
+        return [StrataLayer] + self.layerset.layers
+
     def make_config(self, name=None, reqs=None, default_defer=False):
         name = name or 'Config'
         reqs = set(self.variables) if reqs is None else set(reqs)
@@ -91,11 +105,15 @@ class ConfigSpec(object):
         # raise on insufficient providers
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
+        layers = self.get_layers()
 
         reqs = list(self.variables)
         reqs.extend([r for r in requirements if r not in self.variables])
-
-        for layer in self.layerset.layers:
+        autoprovided = [layer._get_autoprovided() for layer in layers]
+        reqs.extend(chain.from_iterable(autoprovided))
+        if DEBUG:
+            print 'reqs:', sorted([r.name for r in reqs])
+        for layer in layers:
             for var in reqs:
                 try:
                     provider = layer._get_provider(var)
@@ -197,16 +215,17 @@ class BaseConfig(object):
         # TODO: env detection/handling
         # TODO: sanity check config_spec? Or do that in a metaclass?
         cfg_spec = self.config_spec
+        layer_types = cfg_spec.get_layers()
         self.deferred = kwargs.pop('_defer', self.default_defer)
 
         self.kwargs = dict(kwargs)
 
-        self._layers = [t() for t in cfg_spec.layerset.layers]
-        layer_obj_map = dict(zip(cfg_spec.layerset.layers, self._layers))
-        self._layer_map = layer_obj_map
-        self.providers = [p.get_bound(layer_obj_map[p.layer_type])
+        self._strata_layer = StrataLayer(self)
+        # TODO: HACCKK
+        self._layers = [self._strata_layer] + [t() for t in layer_types[1:]]
+        self._layer_map = dict(zip(layer_types, self._layers))
+        self.providers = [p.get_bound(self._layer_map[p.layer_type])
                           for p in cfg_spec.sorted_providers]
-        self._strata_layer = core.StrataLayer(self)
 
         self.provider_results = {'config': Satisfied(self._strata_layer, self)}
         self._unresolved = set()

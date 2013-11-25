@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from types import MethodType
+
 DEBUG = True
 
 from utils import under2camel, camel2under, get_arg_names
@@ -41,21 +43,6 @@ class Variable(object):
         return value
 
 
-def ez_vars(layerset):
-    """
-    A (most likely temporary) utility function to make Variables off
-    of Layer definitions. Something like this should maybe exist in
-    the future, using decorators.
-    """
-    names = set()
-    for layer in layerset.layers:
-        for name in dir(layer):
-            if name.startswith('_'):
-                continue
-            names.add(under2camel(name))
-    return [VariableMeta(n, (Variable,), {}) for n in sorted(names)]
-
-
 class Layer(object):
     @classmethod
     def _get_provider(cls, variable):
@@ -63,16 +50,52 @@ class Layer(object):
         # TODO: switch to getattribute?
         return Provider(cls, variable.name)
 
+    @classmethod
+    def _get_autoprovided(cls):
+        """
+        returns Variable instances for automatically provided
+        variables within a Layer.
+        """
+        cn = cls.__name__
+        # get explicit autoprovides
+        eap = getattr(cls, '_autoprovided', [])
+        ap_var_map, unknown_eaps = {}, []
+        for obj in eap:
+            try:
+                if issubclass(obj, Variable):
+                    ap_var_map[obj.name] = obj
+                    continue
+            except TypeError:
+                pass
+            if isinstance(obj, basestring):
+                ap_var_map[obj] = None
+            else:
+                unknown_eaps.append(obj)
+        if unknown_eaps:
+            raise TypeError('Layer %s has unsupported autoprovide types: %r'
+                            % (cn, unknown_eaps))
+
+        for attrname in dir(cls):
+            if attrname in ap_var_map and ap_var_map[attrname] is not None:
+                continue  # already has a variable associated with it
+            attr = getattr(cls, attrname)
+            try:
+                auto_var = attr._autoprovided_variable
+            except AttributeError:
+                if attrname in ap_var_map and isinstance(attr, MethodType):
+                    auto_var = func2variable(attr.im_func)
+                else:
+                    continue
+            ap_var_map[attrname] = auto_var
+
+        unconverted = [an for an, var in ap_var_map.items() if var is None]
+        if unconverted:
+            raise TypeError('unable to resolve %s autoprovided variables: %r'
+                            % (cn, unconverted))
+        return ap_var_map.values()
+
     def __repr__(self):
         return '%s()' % self.__class__.__name__
-
-
-class StrataLayer(Layer):
-    def __init__(self, config):
-        self._config = config
-
-    def config(self):
-        return self._config
 
 
 class LayerSet(object):
@@ -148,3 +171,39 @@ class FileValue(object):
     def __init__(self, value, file_path):
         self.value = value
         self.file_path = file_path
+
+
+def ez_vars(layerset):
+    """
+    A (most likely temporary) utility function to make Variables off
+    of Layer definitions. Something like this should maybe exist in
+    the future, using decorators.
+    """
+    names = set()
+    for layer in layerset.layers:
+        for name in dir(layer):
+            if name.startswith('_'):
+                continue
+            names.add(under2camel(name))
+    return [VariableMeta(n, (Variable,), {}) for n in sorted(names)]
+
+
+def func2variable(func, class_name=None, **kwargs):
+    "expects a function, not a bound/unbound method."
+    var_name = func.func_name
+    class_name = class_name or under2camel(var_name)
+    attrs = dict(kwargs, name=var_name)
+    attrs.setdefault('description', func.func_doc)
+    variable = VariableMeta(class_name, (Variable,), attrs)
+    return variable
+
+
+def autoprovide(value_type=None, description=None, summary=None):
+    def autoprovide_attr_assigner(func):
+        attrs = {'value_type': value_type,
+                 'description': description,
+                 'summary': summary}
+        variable = func2variable(func, **attrs)
+        func._autoprovided_variable = variable
+        return func
+    return autoprovide_attr_assigner
