@@ -7,6 +7,9 @@ DEBUG = True
 from utils import under2camel, camel2under, get_arg_names
 from errors import MissingValue, ProviderError
 
+# TODO: what about the implicit creation of Variables by virtue of
+# method existence on any loaded Layer
+
 
 class VariableMeta(type):
     def __new__(mcls, name, bases, attrs):
@@ -198,12 +201,24 @@ def func2variable(func, class_name=None, **kwargs):
     return variable
 
 
-def autoprovide(value_type=None, description=None, summary=None):
+def autoprovide(*args, **kwargs):
+    attrs = {'value_type': kwargs.pop('value_type', None),
+             'description': kwargs.pop('description', None),
+             'summary': kwargs.pop('summary', None)}
+    if kwargs:
+        raise TypeError('got unexpected keyword arguments: %r' % kwargs.keys())
+
     def autoprovide_attr_assigner(func):
-        attrs = {'value_type': value_type,
-                 'description': description,
-                 'summary': summary}
         variable = func2variable(func, **attrs)
         func._autoprovided_variable = variable
         return func
-    return autoprovide_attr_assigner
+
+    if args:
+        func = args[0]
+        if callable(func):
+            return autoprovide_attr_assigner(func)
+        else:
+            raise TypeError('autoprovide expects to be called as a decorator'
+                            ' on a function, not %r' % func)
+    else:
+        return autoprovide_attr_assigner
