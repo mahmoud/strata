@@ -23,6 +23,9 @@ class KwargLayer(Layer):
 
 
 class CLILayer(Layer):
+    _autoprovided = ['cli_argparser', 'cli_parsed_args', 'cli_help',
+                     'cli_help_summary']
+
     _allowed_actions = ('store', 'append', 'count')
 
     def __init__(self, desc=None):
@@ -58,7 +61,7 @@ class CLILayer(Layer):
                 long_name = None
         return long_name, short_name
 
-    def argparser(self, config):
+    def cli_argparser(self, config):
         # TODO: nargs?
         prs = ArgumentParser(description=self.parser_desc)
         for var in config.config_spec.variables:
@@ -90,11 +93,11 @@ class CLILayer(Layer):
             prs.add_argument(*norf, **kwargs)
         return prs
 
-    def cli_parsed_args(self, argparser):
-        return argparser.parse_known_args()[0]
+    def cli_parsed_args(self, cli_argparser):
+        return cli_argparser.parse_known_args()[0]
 
-    def cli_help_summary(self, argparser):
-        return argparser.format_usage()
+    def cli_help_summary(self, cli_argparser):
+        return cli_argparser.format_usage()
 
-    def cli_help(self, argparser):
-        return argparser.format_help()
+    def cli_help(self, cli_argparser):
+        return cli_argparser.format_help()
