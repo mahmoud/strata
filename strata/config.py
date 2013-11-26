@@ -101,7 +101,6 @@ class ConfigSpec(object):
     def _compute(self, requirements=None):
         # is requirements necessary here?
         requirements = requirements or []
-        # raise on insufficient providers
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
         layers = self.get_layers()
@@ -209,20 +208,12 @@ class ConfigSpec(object):
         return provider_savings
 
 
-# TODO: need to make Layers instantiated things instead of
-# autoinstantiated in BaseConfig
-
-# This is now fixin to become an abstract base class, with or without
-# capital letters.
-
 class BaseConfig(object):
     config_spec = None
     requirements = None
     default_defer = False
 
     def __init__(self, **kwargs):
-        # TODO: env detection/handling
-        # TODO: sanity check config_spec? Or do that in a metaclass?
         cfg_spec = self.config_spec
         layer_types = cfg_spec.get_layers()
         self.deferred = kwargs.pop('_defer', self.default_defer)
