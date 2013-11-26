@@ -231,6 +231,12 @@ class BaseConfig(object):
         if not self.deferred:
             self._process()
 
+    def __repr__(self):
+        # would a non-constructor style repr be more helpful?
+        cn = self.__class__.__name__
+        kw_str = ', '.join(['%s=%r' % (k, v) for k, v in self.kwargs])
+        return '%s(%s)' % (cn, kw_str)
+
     def _process(self):
         # TODO: what to do about re-processin?
         cfg_spec = self.config_spec
