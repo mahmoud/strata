@@ -50,7 +50,12 @@ class Layer(object):
     @classmethod
     def _get_provider(cls, variable):
         # TODO: explicit way to determine which methods are exported by default
-        return Provider(cls, variable.name)
+        vn = variable.name
+        try:
+            func = getattr(cls, vn)
+        except AttributeError:
+            raise ProviderError("Layer %r doesn't provide %r" % (cls, vn))
+        return Provider(cls, vn, func)
 
     @classmethod
     def _get_autoprovided(cls):
@@ -123,7 +128,7 @@ class Provider(object):
     of a single Variable. (the intersection of Layer and Variable).
     """
 
-    def __init__(self, layer, var_name, func=None):
+    def __init__(self, layer, var_name, func):
         if isinstance(layer, type):
             self.layer_inst = None
             self.layer_type = layer
@@ -132,32 +137,29 @@ class Provider(object):
             self.layer_type = type(layer)
         self.var_name = var_name
         self.func = func
-        if self.func is None:
-            self._set_func(layer)
-        else:
-            self._is_custom_func = True
         try:
             self.dep_names = get_arg_names(self.func)
         except:
             raise ProviderError('unsupported provider type: %r' % self.func)
-
-    def _set_func(self, layer):
-        self._is_custom_func = False
-        vn = self.var_name
-        try:
-            self.func = getattr(layer, vn)
-        except AttributeError:
-            raise ProviderError("Layer %r doesn't provide %r" % (layer, vn))
 
     @property
     def is_bound(self):
         return self.layer_inst is not None
 
     def get_bound(self, layer_inst):
-        # TODO: check that layer types match?
+        func, var_name, layer_type = self.func, self.var_name, self.layer_type
+        # first, a sanity check
+        if not isinstance(layer_inst, layer_type):
+            raise TypeError('expected an instance of %r, not %r'
+                            % (layer_inst, layer_type))
+        # do the actual method rebind (technically sorta the first binding)
+        try:
+            if func.im_self is None and isinstance(layer_inst, func.im_class):
+                func = type(func)(func.im_func, layer_inst, layer_type)
+        except AttributeError:
+            pass
         p_type = type(self)
-        func = self.func if self._is_custom_func else None
-        return p_type(layer_inst, self.var_name, func)
+        return p_type(layer_inst, var_name, func)
 
     def __repr__(self):
         cn = self.__class__.__name__
