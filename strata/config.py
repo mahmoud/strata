@@ -79,9 +79,6 @@ class ConfigSpec(object):
         """
         return cls()
 
-    def get_layers(self):
-        return [StrataLayer] + self.layerset.layers
-
     def make_config(self, name=None, reqs=None, default_defer=False):
         name = name or 'Config'
         reqs = set(self.variables) if reqs is None else set(reqs)
@@ -89,7 +86,6 @@ class ConfigSpec(object):
         # check requirements
         req_names = set([r.name for r in reqs])
         var_names = set([v.name for v in self.variables])
-
         if not req_names <= var_names:
             self._compute(reqs)  # TODO: check that recomputation is safe
 
@@ -103,7 +99,7 @@ class ConfigSpec(object):
         requirements = requirements or []
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
-        layers = self.get_layers()
+        layers = [StrataLayer] + self.layerset.layers
 
         reqs = list(self.variables)
         reqs.extend([r for r in requirements if r not in self.variables])
@@ -215,18 +211,18 @@ class BaseConfig(object):
 
     def __init__(self, **kwargs):
         cfg_spec = self.config_spec
-        layer_types = cfg_spec.get_layers()
         self.deferred = kwargs.pop('_defer', self.default_defer)
 
         self.kwargs = dict(kwargs)
 
         self._strata_layer = StrataLayer(self)
-        # TODO: HACCKK
-        self._layers = [self._strata_layer] + [t() for t in layer_types[1:]]
-        self._layer_map = dict(zip(layer_types, self._layers))
+        layer_type_pairs = [(StrataLayer, self._strata_layer)]
+        layer_type_pairs.extend([(t, t()) for t in cfg_spec.layerset.layers])
+        self._layers = [ltp[1] for ltp in layer_type_pairs]
+        self._layer_map = dict(layer_type_pairs)
+
         self.providers = [p.get_bound(self._layer_map[p.layer_type])
                           for p in cfg_spec.sorted_providers]
-
         self.provider_results = {'config': Satisfied(self._strata_layer, self)}
         self._unresolved = set()
 
