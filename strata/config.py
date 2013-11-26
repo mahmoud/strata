@@ -19,7 +19,6 @@ stack
 from itertools import chain
 from collections import namedtuple
 
-
 from core import Layer, DEBUG
 from utils import inject
 from errors import ConfigException, ProviderError
@@ -113,8 +112,13 @@ class ConfigSpec(object):
         reqs.extend(chain.from_iterable(autoprovided))
         if DEBUG:
             print 'reqs:', sorted([r.name for r in reqs])
-        for layer in layers:
-            for var in reqs:
+        var_name_map = dict([(v.name, v) for v in reqs])
+        to_proc = [v.name for v in reqs]
+        unresolved = []
+        while to_proc:
+            cur_var_name = to_proc.pop()
+            var = var_name_map[cur_var_name]
+            for layer in layers:
                 try:
                     provider = layer._get_provider(var)
                 except ProviderError:
@@ -122,7 +126,12 @@ class ConfigSpec(object):
                 vpm.setdefault(var.name, []).append(provider)
                 for dn in provider.dep_names:
                     vcm.setdefault(dn, []).append(provider)
-
+                    if dn not in var_name_map:
+                        unresolved.append(dn)
+                        var_name_map[dn] = None
+                        #to_proc.append(dn)
+        if unresolved:
+            raise TypeError('unresolved deps: %r' % unresolved)
         self.all_providers = sum(vpm.values(), [])
         self.all_var_names = sorted(vpm.keys())
 

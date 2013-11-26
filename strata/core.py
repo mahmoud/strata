@@ -49,8 +49,7 @@ class Variable(object):
 class Layer(object):
     @classmethod
     def _get_provider(cls, variable):
-        # TODO: descriptor to support usage on both class and instance?
-        # TODO: switch to getattribute?
+        # TODO: explicit way to determine which methods are exported by default
         return Provider(cls, variable.name)
 
     @classmethod
