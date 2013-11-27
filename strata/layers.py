@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import os
 from argparse import ArgumentParser
 
 from core import Layer, Provider
-from errors import ProviderError
+from errors import ProviderError, MissingValue
 from utils import make_sentinel
 
 
@@ -20,6 +21,23 @@ class KwargLayer(Layer):
             return config.kwargs[variable.name]
 
         return Provider(cls, variable.name, _get_config_kwarg)
+
+
+class EnvVarLayer(Layer):
+    @classmethod
+    def _get_provider(cls, var):
+        env_var_name = getattr(var, 'env_var_name', None)
+        if not env_var_name:
+            raise ProviderError('not an environment variable: %r' % var)
+
+        def _get_env_var():
+            ret = os.getenv(env_var_name)
+            if ret is None:
+                raise MissingValue('no value set for environment variable: %r'
+                                   ' (for %s)' % (env_var_name, var.__name__))
+            return ret
+
+        return Provider(cls, var.name, _get_env_var)
 
 
 class CLILayer(Layer):

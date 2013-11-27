@@ -2,7 +2,6 @@
 
 from pprint import pprint
 
-import common
 from strata.core import Layer, LayerSet
 from strata.config import ConfigSpec
 
