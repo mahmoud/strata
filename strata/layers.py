@@ -4,7 +4,7 @@ import os
 from argparse import ArgumentParser
 
 from core import Layer, Provider
-from errors import ProviderError, MissingValue
+from errors import NotProvidable, MissingValue
 from utils import make_sentinel
 
 
@@ -12,23 +12,27 @@ _MISSING = make_sentinel()
 
 
 class KwargLayer(Layer):
+    _helpstr = 'expects `is_config_kwarg` to be set on Variable'
+
     @classmethod
-    def _get_provider(cls, variable):
-        if not getattr(variable, 'is_config_kwarg', None):
-            raise ProviderError('not a config kwarg: %r' % variable)
+    def _get_provider(cls, var):
+        if not getattr(var, 'is_config_kwarg', None):
+            raise NotProvidable(cls, var, cls._helpstr)
 
         def _get_config_kwarg(config):
-            return config.kwargs[variable.name]
+            return config.kwargs[var.name]
 
-        return Provider(cls, variable.name, _get_config_kwarg)
+        return Provider(cls, var.name, _get_config_kwarg)
 
 
 class EnvVarLayer(Layer):
+    _helpstr = 'expects `env_var_name` to be set on Variable'
+
     @classmethod
     def _get_provider(cls, var):
         env_var_name = getattr(var, 'env_var_name', None)
         if not env_var_name:
-            raise ProviderError('not an environment variable: %r' % var)
+            raise NotProvidable(cls, var, cls._helpstr)
 
         def _get_env_var():
             ret = os.getenv(env_var_name)
@@ -41,10 +45,12 @@ class EnvVarLayer(Layer):
 
 
 class CLILayer(Layer):
+    _helpstr = 'expects `is_cli_arg` or `cli_arg_name` to be set on Variable'
+    _allowed_actions = ('store', 'append', 'count')
+
+    # TODO
     _autoprovided = ['cli_argparser', 'cli_parsed_args', 'cli_help',
                      'cli_help_summary']
-
-    _allowed_actions = ('store', 'append', 'count')
 
     def __init__(self, desc=None):
         self.parser_desc = desc
@@ -53,13 +59,13 @@ class CLILayer(Layer):
     def _get_provider(cls, var):
         try:
             return super(CLILayer, cls)._get_provider(var)
-        except ProviderError as pe:
+        except NotProvidable:
             pass
         arg_name, short_arg_name = cls._get_cli_arg_names(var)
         if arg_name or short_arg_name:
             var_getter = cls._make_parsed_arg_getter(var.name)
             return Provider(cls, var.name, var_getter)
-        raise pe
+        raise NotProvidable(cls, var, cls._helpstr)
 
     @classmethod
     def _make_parsed_arg_getter(cls, var_name):

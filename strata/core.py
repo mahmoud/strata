@@ -5,7 +5,7 @@ from types import MethodType
 DEBUG = True
 
 from utils import under2camel, camel2under, get_arg_names
-from errors import MissingValue, ProviderError
+from errors import MissingValue, ProviderError, NotProvidable
 
 # TODO: what about the implicit creation of Variables by virtue of
 # method existence on any loaded Layer
@@ -54,7 +54,7 @@ class Layer(object):
         try:
             func = getattr(cls, vn)
         except AttributeError:
-            raise ProviderError("Layer %r doesn't provide %r" % (cls, vn))
+            raise NotProvidable(cls, variable)
         return Provider(cls, vn, func)
 
     @classmethod

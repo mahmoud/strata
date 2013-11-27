@@ -21,7 +21,7 @@ from collections import namedtuple
 
 from core import Layer, DEBUG
 from utils import inject
-from errors import ConfigException, ProviderError
+from errors import ConfigException, NotProvidable
 
 
 class StrataLayer(Layer):
@@ -116,7 +116,7 @@ class ConfigSpec(object):
             for layer in layers:
                 try:
                     provider = layer._get_provider(var)
-                except ProviderError:
+                except NotProvidable:
                     continue
                 vpm.setdefault(var.name, []).append(provider)
                 for dn in provider.dep_names:
