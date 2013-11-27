@@ -3,9 +3,9 @@
 import os
 from argparse import ArgumentParser
 
-from core import Layer, Provider
-from errors import NotProvidable, MissingValue
-from utils import make_sentinel
+from .core import Layer, Provider
+from .errors import NotProvidable, MissingValue
+from .utils import make_sentinel
 
 
 _MISSING = make_sentinel()

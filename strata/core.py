@@ -4,8 +4,8 @@ from types import MethodType
 
 DEBUG = True
 
-from utils import under2camel, camel2under, get_arg_names
-from errors import MissingValue, ProviderError, NotProvidable
+from .utils import under2camel, camel2under, get_arg_names
+from .errors import MissingValue, ProviderError, NotProvidable
 
 # TODO: what about the implicit creation of Variables by virtue of
 # method existence on any loaded Layer

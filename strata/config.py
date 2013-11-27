@@ -19,9 +19,9 @@ stack
 from itertools import chain
 from collections import namedtuple
 
-from core import Layer, DEBUG
-from utils import inject
-from errors import ConfigException, NotProvidable
+from .core import Layer, DEBUG
+from .utils import inject
+from .errors import ConfigException, NotProvidable
 
 
 class StrataLayer(Layer):
