@@ -177,7 +177,7 @@ class ConfigSpec(object):
                     raise Exception('circular deps, I think: %r' % var)
                 cur = to_proc.pop()
                 cur_rdeps = dep_map.get(cur, [])
-                to_proc.extend(cur_rdeps)
+                to_proc.extend([c for c in cur_rdeps if c not in to_proc])
                 rdeps.update(cur_rdeps)
             rdep_map[var] = rdeps
         return rdep_map
@@ -252,21 +252,24 @@ class BaseConfig(object):
             req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
             var_name = provider.var_name
             if var_name not in req_rdeps:
+                res = Pruned(by=provider, value='<no refs>')
                 if DEBUG:
-                    print 'pruning: ', provider, '(no refs)'
-                provider_results[provider] = Pruned()
+                    print ' == ', res
+                provider_results[provider] = res
                 continue
             elif var_name in _cur_vals:
+                res = Pruned(by=provider, value='<already satisfied>')
                 if DEBUG:
-                    print 'pruning:', provider, '(already satisfied)'
-                provider_results[provider] = Pruned()
+                    print ' == ', res
+                provider_results[provider] = res
                 continue
             try:
                 res = inject(provider.func, _cur_vals)
             except Exception as e:
+                res = Unsatisfied(by=provider, value=e)
                 if DEBUG:
-                    print 'exception:', repr(e)
-                provider_results[provider] = Unsatisfied(by=provider, value=e)
+                    print ' - ', res
+                provider_results[provider] = res
             else:
                 provider_results[provider] = Satisfied(by=provider, value=res)
                 _cur_vals[var_name] = res
