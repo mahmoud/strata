@@ -70,7 +70,10 @@ class CLILayer(Layer):
     @classmethod
     def _make_parsed_arg_getter(cls, var_name):
         def _get_parsed_arg(cli_parsed_args):
-            return getattr(cli_parsed_args, var_name)
+            ret = getattr(cli_parsed_args, var_name)
+            if ret is None:
+                raise MissingValue(var_name)
+            return ret
         return _get_parsed_arg
 
     @staticmethod
