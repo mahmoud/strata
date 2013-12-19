@@ -31,7 +31,11 @@ def get_cli_config(req_var_names=None):
     return cspec.make_config(reqs=req_vars)
 
 
-def test_cli():
+def test_cli(add_two_to_argv=True):
+    if add_two_to_argv:
+        # laziness: for combined cli testing and py.test reuse
+        import sys
+        sys.argv.extend(['--two', 'testingMEH'])
     TestConfig = get_cli_config()
     config = TestConfig(var_one='var_one is #1! USA! USA!')
     repr(config)
@@ -41,4 +45,4 @@ def test_cli():
 
 
 if __name__ == '__main__':
-    test_cli()
+    test_cli(False)
