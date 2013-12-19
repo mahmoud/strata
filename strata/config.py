@@ -19,7 +19,7 @@ stack
 from itertools import chain
 from collections import namedtuple
 
-from .core import Layer, DEBUG
+from .core import Layer, DEBUG, Provider
 from .utils import inject
 from .errors import ConfigException, NotProvidable
 
@@ -106,7 +106,7 @@ class ConfigSpec(object):
         autoprovided = [layer._get_autoprovided() for layer in layers]
         reqs.extend(chain.from_iterable(autoprovided))
         if DEBUG:
-            print 'reqs:', sorted([r.name for r in reqs])
+            print 'reqs:', sorted(set([r.name for r in reqs]))
         var_name_map = dict([(v.name, v) for v in reqs])
         to_proc = [v.name for v in reqs]
         unresolved = []
@@ -204,6 +204,40 @@ class ConfigSpec(object):
         return provider_savings
 
 
+class ProcessState(object):
+    def __init__(self, debug=DEBUG):
+        self.name_value_map = {}
+        self.name_result_map = {}
+        self.provider_result_map = {}
+        self._debug = debug
+
+    def is_satisfied(self, var_name):
+        return var_name in self.name_value_map
+
+    def satisfy(self, provider, value):
+        # satisfy is the only one that actually updates the scope
+        result = Satisfied(by=provider, value=value)
+        self.name_value_map[provider.var_name] = value
+        self.name_result_map[provider.var_name] = result
+        return self.register_result(provider, result)
+
+    def prune(self, provider, value):
+        result = Pruned(by=provider, value=value)
+        if self._debug:
+            print ' == ', result
+        return self.register_result(provider, result)
+
+    def unsatisfy(self, provider, exception):
+        result = Unsatisfied(by=provider, value=exception)
+        if self._debug:
+            print ' - ', result
+        return self.register_result(provider, result)
+
+    def register_result(self, provider, result):
+        self.provider_result_map[provider] = result
+        return result
+
+
 class BaseConfig(object):
     config_spec = None
     requirements = None
@@ -223,7 +257,7 @@ class BaseConfig(object):
 
         self.providers = [p.get_bound(self._layer_map[p.layer_type])
                           for p in cfg_spec.sorted_providers]
-        self.provider_results = {'config': Satisfied(self._strata_layer, self)}
+        self.provider_results = {}
         self._unresolved = set()
 
         self.results = {}
@@ -243,38 +277,34 @@ class BaseConfig(object):
         vpm = cfg_spec.var_provider_map
         req_names = set([v.name for v in self.requirements])
 
-        provider_results = self.provider_results
-        _cur_vals = dict([(k, pr.value) for k, pr in provider_results.items()])
+        pstate = ProcessState()
+
+        # TODO: cleaner way to make config_provider
+        config_provider = Provider(self._strata_layer, 'config', lambda: self)
+        pstate.satisfy(config_provider, self)
+
         for provider in self.providers:
             # TODO: only recompute the following on satisfaction?
-            cur_deps = ConfigSpec._compute_slot_dep_map(vpm, _cur_vals)
+            cur_deps = ConfigSpec._compute_slot_dep_map(vpm,
+                                                        pstate.name_value_map)
             cur_rdeps = ConfigSpec._compute_rdep_map(cur_deps)
             req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
             var_name = provider.var_name
             if var_name not in req_rdeps:
-                res = Pruned(by=provider, value='<no refs>')
-                if DEBUG:
-                    print ' == ', res
-                provider_results[provider] = res
+                pstate.prune(provider, '<no refs>')
                 continue
-            elif var_name in _cur_vals:
-                res = Pruned(by=provider, value='<already satisfied>')
-                if DEBUG:
-                    print ' == ', res
-                provider_results[provider] = res
+            elif pstate.is_satisfied(var_name):
+                _sat_by = pstate.name_result_map[var_name].by
+                pstate.prune(provider, '<already satisfied by %r>' % _sat_by)
                 continue
             try:
-                res = inject(provider.func, _cur_vals)
+                value = inject(provider.func, pstate.name_value_map)
             except Exception as e:
-                res = Unsatisfied(by=provider, value=e)
-                if DEBUG:
-                    print ' - ', res
-                provider_results[provider] = res
+                pstate.unsatisfy(provider, e)
             else:
-                provider_results[provider] = Satisfied(by=provider, value=res)
-                _cur_vals[var_name] = res
-        self.results = _cur_vals
-        self.provider_results = provider_results
+                pstate.satisfy(provider, value)
+        self.results = pstate.name_value_map
+        self.provider_results = pstate.provider_result_map
         self._unresolved = req_rdeps - set(self.results)
 
         if self._unresolved:

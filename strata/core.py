@@ -58,6 +58,10 @@ class Layer(object):
         return Provider(cls, vn, func)
 
     @classmethod
+    def _specialize(cls, prefix=None):
+        pass
+
+    @classmethod
     def _get_autoprovided(cls):
         """
         returns Variable instances for automatically provided
