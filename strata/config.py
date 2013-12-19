@@ -207,7 +207,8 @@ class ConfigSpec(object):
 class ProcessState(object):
     def __init__(self, debug=DEBUG):
         self.name_value_map = {}
-        self.name_result_map = {}
+        self.name_satisfier_map = {}
+        self.name_result_map = {}  # only stores most recent result
         self.provider_result_map = {}
         self._debug = debug
 
@@ -218,7 +219,7 @@ class ProcessState(object):
         # satisfy is the only one that actually updates the scope
         result = Satisfied(by=provider, value=value)
         self.name_value_map[provider.var_name] = value
-        self.name_result_map[provider.var_name] = result
+        self.name_satisfier_map[provider.var_name] = provider
         return self.register_result(provider, result)
 
     def prune(self, provider, value):
@@ -234,8 +235,16 @@ class ProcessState(object):
         return self.register_result(provider, result)
 
     def register_result(self, provider, result):
+        self.name_result_map[provider.var_name] = result
         self.provider_result_map[provider] = result
         return result
+
+    def __repr__(self):
+        return ('<%s: %s providers, %s variables, %s satisfied>'
+                % (self.__class__.__name__,
+                   len(self.provider_result_map),
+                   len(self.name_result_map),
+                   len(self.name_value_map)))
 
 
 class BaseConfig(object):
@@ -294,7 +303,7 @@ class BaseConfig(object):
                 pstate.prune(provider, '<no refs>')
                 continue
             elif pstate.is_satisfied(var_name):
-                _sat_by = pstate.name_result_map[var_name].by
+                _sat_by = pstate.name_satisfier_map[var_name]
                 pstate.prune(provider, '<already satisfied by %r>' % _sat_by)
                 continue
             try:
@@ -310,6 +319,8 @@ class BaseConfig(object):
         if self._unresolved:
             sorted_unres = sorted(self._unresolved)
             raise ConfigException('could not resolve: %r' % sorted_unres)
+        if DEBUG:
+            print pstate
 
 
 # ProviderSortKey
