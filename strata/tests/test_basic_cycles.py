@@ -70,7 +70,7 @@ def test_masking_self_cycle():
         def var_a(self):  # no deps
             return 'masked a'
 
-    layerset = LayerSet('default', [SelfCycleLayer])
+    layerset = LayerSet('default', [MaskingLayer, SelfCycleLayer])
     variables = ez_vars(layerset)
     try:
         ConfigSpec(variables, layerset)
