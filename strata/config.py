@@ -14,6 +14,15 @@ unsatisfied
 pruned
 slot
 stack
+
+process notes:
+
+* precursor reconciliation: provider argument names with known Variable names
+
+"requirements" are Variables that must be successfully provided during
+Config instantiation. If requirements isn't explicitly provided, it's
+assumed that all Variables must be provided for a Config object to
+successfully instantiate.
 """
 
 from itertools import chain
@@ -22,6 +31,14 @@ from collections import namedtuple
 from .core import Layer, DEBUG, Provider
 from .utils import inject
 from .errors import ConfigException, NotProvidable
+
+
+class DependencyCycle(Exception):
+    pass
+
+
+class UnresolvedDependency(Exception):
+    pass
 
 
 class StrataLayer(Layer):
@@ -77,7 +94,7 @@ class ConfigSpec(object):
 
         TODO: except/warn on overwrites/unused types?
         """
-        return cls()
+        return cls([], [])
 
     def make_config(self, name=None, reqs=None, default_defer=False):
         name = name or 'Config'
@@ -125,8 +142,10 @@ class ConfigSpec(object):
                         unresolved.append(dn)
                         var_name_map[dn] = None
                         #to_proc.append(dn)
+            if cur_var_name not in vpm:
+                raise UnresolvedDependency('no providers found for: %r' % var)
         if unresolved:
-            raise TypeError('unresolved deps: %r' % unresolved)
+            raise UnresolvedDependency('unresolved deps: %r' % unresolved)
         self.all_providers = sum(vpm.values(), [])
         self.all_var_names = sorted(vpm.keys())
 
@@ -174,7 +193,7 @@ class ConfigSpec(object):
             while to_proc:
                 i += 1  # TODO: better circdep handlin
                 if i > 50:
-                    raise Exception('circular deps, I think: %r' % var)
+                    raise DependencyCycle('circular deps, I think: %r' % var)
                 cur = to_proc.pop()
                 cur_rdeps = dep_map.get(cur, [])
                 to_proc.extend([c for c in cur_rdeps if c not in to_proc])

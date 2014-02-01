@@ -7,9 +7,6 @@ DEBUG = True
 from .utils import under2camel, camel2under, get_arg_names
 from .errors import MissingValue, ProviderError, NotProvidable
 
-# TODO: what about the implicit creation of Variables by virtue of
-# method existence on any loaded Layer
-
 
 class VariableMeta(type):
     def __new__(mcls, name, bases, attrs):
@@ -46,10 +43,15 @@ class Variable(object):
         return value
 
 
+class BaseLayer(object):
+    @classmethod
+    def _get_provider(cls, variable):
+        raise NotImplementedError('Layers must implement _get_provider()')
+
+
 class Layer(object):
     @classmethod
     def _get_provider(cls, variable):
-        # TODO: explicit way to determine which methods are exported by default
         vn = variable.name
         try:
             func = getattr(cls, vn)
