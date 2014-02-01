@@ -23,6 +23,13 @@ process notes:
 Config instantiation. If requirements isn't explicitly provided, it's
 assumed that all Variables must be provided for a Config object to
 successfully instantiate.
+
+Put another way, at the ConfigSpec level, all variables need to have
+at least one Provider, but the existence of a Provider doesn't mean
+that the Provider will actually produce a value suitable for a given
+Variable. The "requirements" construct provides a mechanism for
+allowing a Config to generate an exception if a Variable is
+unprovided, and allow other Variables to pass unprovided.
 """
 
 from itertools import chain
@@ -30,15 +37,10 @@ from collections import namedtuple
 
 from .core import Layer, DEBUG, Provider
 from .utils import inject
-from .errors import ConfigException, NotProvidable
-
-
-class DependencyCycle(Exception):
-    pass
-
-
-class UnresolvedDependency(Exception):
-    pass
+from .errors import (ConfigException,
+                     NotProvidable,
+                     DependencyCycle,
+                     UnresolvedDependency)
 
 
 class StrataLayer(Layer):

@@ -17,8 +17,8 @@ class InvalidValue(ConfigValueError):
     pass
 
 
-class LayerError(ConfigException, TypeError):
-    pass
+#class LayerError(ConfigException, TypeError):
+#    pass
 
 
 class ProviderError(ConfigException, TypeError):
@@ -37,3 +37,15 @@ class NotProvidable(ConfigException):
         if details:
             msg += ': %s' % (details,)
         super(NotProvidable, self).__init__(msg)
+
+
+class ConfigSpecException(Exception):
+    pass
+
+
+class DependencyCycle(ConfigSpecException):
+    pass
+
+
+class UnresolvedDependency(ConfigSpecException):
+    pass
