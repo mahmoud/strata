@@ -153,7 +153,7 @@ class ConfigSpec(object):
 
         sdm = self.slot_dep_map = self._compute_slot_dep_map(vpm)
         srdm = self.slot_rdep_map = self._compute_rdep_map(sdm)
-        sorted_dep_slots = toposort(srdm)
+        sorted_dep_slots = jit_toposort(srdm)
         dep_indices, slot_order = {}, []
         for level_idx, level in enumerate(sorted_dep_slots):
             for var_name in level:
@@ -223,6 +223,13 @@ class ConfigSpec(object):
                         provider_savings[prev_p].update(p_rdeps)
                 sprd_list.append((p, p_rdeps))
         return provider_savings
+
+
+def _get_consumer_depth(name, vcm):
+    to_proc = list(vcm.get(name, []))
+    if not to_proc:
+        return 1
+    return max([_get_consumer_depth(cn, vcm) for cn in to_proc]) + 1
 
 
 class ProcessState(object):
@@ -345,7 +352,7 @@ class BaseConfig(object):
 
 
 # ProviderSortKey
-PSK = namedtuple('PSK', 'agg_dep savings cons_c arg_c char_c')
+PSK = namedtuple('PSK', 'slot_idx, layer_idx, agg_dep savings cons_c arg_c char_c')
 
 
 def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
@@ -370,14 +377,18 @@ def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
     consumer_map = consumer_map or {}
     var_stack = provider_map[p.var_name]
     layer_idx = var_stack.index(p)
+    level_idx = level_idx_map[p.var_name]
+
+    max_dep = max([level_idx_map[d] + 1 for d in p.dep_names] or [0])
+    #slot_idx = max_dep - level_idx
+
     upstack_dep_lists = [up.dep_names for up in var_stack[:layer_idx]]
     upstack_dep_set = set(sum(upstack_dep_lists, ()))
-    max_dep = max([level_idx_map[d] for d in p.dep_names] or [0])
     agg_dep = max_dep + len(upstack_dep_set) + layer_idx
     savings = len(savings_map.get(p, []))
     consumer_c = len(consumer_map.get(p.var_name, []))
     arg_c = len(p.dep_names)
-    return PSK(agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
+    return PSK(level_idx, layer_idx, agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
 
 
 def toposort(dep_map):
@@ -390,12 +401,38 @@ def toposort(dep_map):
     remaining = dict(dep_map)
     while remaining:
         cur = set([item for item, deps in remaining.items() if not deps])
-        if cur:
-            ret.append(cur)
-            remaining = dict([(item, deps - cur) for item, deps
-                              in remaining.items() if item not in cur])
-        else:
+        if not cur:
             break
+        ret.append(cur)
+        remaining = dict([(item, deps - cur) for item, deps
+                          in remaining.items() if item not in cur])
     if remaining:
         raise ValueError('unresolvable dependencies: %r' % remaining)
     return ret
+
+
+def jit_toposort(dep_map):
+    "expects a dict of {item: set([deps])}"
+    ret, orig_dep_map, dep_map = [], dep_map, dict(dep_map)
+    if not dep_map:
+        return []
+    extras = set.union(*dep_map.values()) - set(dep_map)
+    dep_map.update([(k, set()) for k in extras])
+    remaining = dict(dep_map)
+    ready = set()
+    while remaining:
+        cur = set([item for item, deps in remaining.items() if not deps])
+        if not cur:
+            break
+        ready.update(cur)
+        cur_used = set([r for r in ready
+                        if any([r in orig_dep_map[c] for c in cur])])
+        ret.append(cur_used)
+        ready = ready - cur_used
+        remaining = dict([(item, deps - cur) for item, deps
+                          in remaining.items() if item not in cur])
+    if ready:
+        ret.append(ready)
+    if remaining:
+        raise ValueError('unresolvable dependencies: %r' % remaining)
+    return ret[1:]  # nothing's every used before the first thing, so snip snip
