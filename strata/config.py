@@ -108,9 +108,9 @@ class ConfigSpec(object):
         if not req_names <= var_names:
             self._compute(reqs)  # TODO: check that recomputation is safe
 
-        attrs = {'config_spec': self,
-                 'requirements': reqs,
-                 'default_defer': default_defer}
+        attrs = {'_config_spec': self,
+                 '_requirements': reqs,
+                 '_default_defer': default_defer}
         return type(name, (BaseConfig,), attrs)
 
     def _compute(self, requirements=None):
@@ -276,15 +276,15 @@ class ProcessState(object):
 
 
 class BaseConfig(object):
-    config_spec = None
-    requirements = None
-    default_defer = False
+    _config_spec = None
+    _requirements = None
+    _default_defer = False
 
     def __init__(self, **kwargs):
-        cfg_spec = self.config_spec
-        self.deferred = kwargs.pop('_defer', self.default_defer)
+        cfg_spec = self._config_spec
+        self._deferred = kwargs.pop('_defer', self._default_defer)
 
-        self.kwargs = dict(kwargs)
+        self._input_kwargs = dict(kwargs)
 
         self._strata_layer = StrataLayer(self)
         layer_type_pairs = [(StrataLayer, self._strata_layer)]
@@ -292,27 +292,29 @@ class BaseConfig(object):
         self._layers = [ltp[1] for ltp in layer_type_pairs]
         self._layer_map = dict(layer_type_pairs)
 
-        self.providers = [p.get_bound(self._layer_map[p.layer_type])
-                          for p in cfg_spec.sorted_providers]
-        self.provider_results = {}
+        self._providers = [p.get_bound(self._layer_map[p.layer_type])
+                           for p in cfg_spec.sorted_providers]
+        self._provider_results = {}
         self._unresolved = set()
 
-        self.results = {}
+        self._result_map = {}
 
-        if not self.deferred:
+        if not self._deferred:
             self._process()
+            self.__dict__.update(self._result_map)
 
     def __repr__(self):
         # would a non-constructor style repr be more helpful?
         cn = self.__class__.__name__
-        kw_str = ', '.join(['%s=%r' % (k, v) for k, v in self.kwargs.items()])
+        kw_str = ', '.join(['%s=%r' % (k, v) for k, v
+                            in self._input_kwargs.items()])
         return '%s(%s)' % (cn, kw_str)
 
     def _process(self):
         # TODO: what to do about re-processin?
-        cfg_spec = self.config_spec
+        cfg_spec = self._config_spec
         vpm = cfg_spec.var_provider_map
-        req_names = set([v.name for v in self.requirements])
+        req_names = set([v.name for v in self._requirements])
 
         pstate = ProcessState()
 
@@ -320,7 +322,7 @@ class BaseConfig(object):
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
         pstate.satisfy(config_provider, self)
 
-        for provider in self.providers:
+        for provider in self._providers:
             # TODO: only recompute the following on satisfaction?
             cur_deps = ConfigSpec._compute_slot_dep_map(vpm,
                                                         pstate.name_value_map)
@@ -340,11 +342,11 @@ class BaseConfig(object):
                 pstate.unsatisfy(provider, e)
             else:
                 pstate.satisfy(provider, value)
-        self.results = pstate.name_value_map
-        self.provider_results = pstate.provider_result_map
-        self._unresolved = req_rdeps - set(self.results)
+        self._result_map = pstate.name_value_map
+        self._provider_results = pstate.provider_result_map
+        self._unresolved = req_rdeps - set(self._result_map)
 
-        if self._unresolved:
+        if self._unresolved:  # TODO: compare against self._requirements
             sorted_unres = sorted(self._unresolved)
             raise ConfigException('could not resolve: %r' % sorted_unres)
         if DEBUG:
