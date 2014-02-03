@@ -20,7 +20,7 @@ class KwargLayer(Layer):
             raise NotProvidable(cls, var, cls._helpstr)
 
         def _get_config_kwarg(config):
-            return config.kwargs[var.name]
+            return config._input_kwargs[var.name]
 
         return Provider(cls, var.name, _get_config_kwarg)
 
@@ -91,7 +91,7 @@ class CLILayer(Layer):
     def cli_argparser(self, config):
         # TODO: nargs?
         prs = ArgumentParser(description=self.parser_desc)
-        for var in config.config_spec.variables:
+        for var in config._config_spec.variables:
             arg_name, short_arg_name = self._get_cli_arg_names(var)
             if not arg_name and not short_arg_name:
                 continue
