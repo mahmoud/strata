@@ -39,8 +39,8 @@ def test_cli(add_two_to_argv=True):
     TestConfig = get_cli_config()
     config = TestConfig(var_one='var_one is #1! USA! USA!')
     repr(config)
-    print config.results['cli_help']
-    print config.results['var_one'], config.results['var_two']
+    #print config.cli_help
+    print config.var_one, config.var_two
     return config
 
 

@@ -317,7 +317,6 @@ class BaseConfig(object):
         req_names = set([v.name for v in self._requirements])
 
         pstate = ProcessState()
-        import pdb;pdb.set_trace()
         # TODO: cleaner way to make config_provider
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
         pstate.satisfy(config_provider, self)
@@ -363,6 +362,15 @@ class BaseConfig(object):
         for var_name in req_names:
             val = self._fulfill_one(var_name, pstate)
             print var_name, '-', val
+        self._result_map = pstate.name_value_map
+        self._provider_results = pstate.provider_result_map
+        self._unresolved = req_names - set(self._result_map)
+
+        if self._unresolved:  # TODO: compare against self._requirements
+            sorted_unres = sorted(self._unresolved)
+            raise ConfigException('could not resolve: %r' % sorted_unres)
+        if DEBUG:
+            print pstate
         return
 
     def _fulfill_one(self, name, pstate):

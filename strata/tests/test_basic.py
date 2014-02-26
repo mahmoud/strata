@@ -57,25 +57,23 @@ def get_basic_config_spec(layerset=BASIC_LAYERSET):
 
 
 def get_basic_config(req_var_names=None, cspec=None):
-    req_var_names = set(req_var_names or ['var_d'])
     cspec = cspec or get_basic_config_spec()
-    req_vars = [v for v in cspec.variables if v.name in req_var_names]
-    return cspec.make_config(reqs=req_vars)
+    return cspec.make_config()
 
 
 def test_basic_vars():
     conf_type = get_basic_config()
     conf = conf_type()
-    res = conf.results
+    res = conf._result_map
     expected_keys = set(['var_a', 'var_b', 'var_e',
                          'var_c', 'var_d', 'config'])
-    assert set(res.keys()) == expected_keys
+    assert set(res.keys()) > expected_keys
     assert res['var_a'] == 0
     assert res['var_b'] == 2
     assert res['var_c'] == 3
     assert res['var_d'] == 4
     assert res['var_e'] == -1
-    pprint(conf.results)
+    pprint(conf)
     return conf
 
 
