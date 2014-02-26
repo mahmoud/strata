@@ -311,56 +311,17 @@ class BaseConfig(object):
         return '%s(%s)' % (cn, kw_str)
 
     def _process(self):
-        # TODO: what to do about re-processin?
-        cfg_spec = self._config_spec
-        vpm = cfg_spec.var_provider_map
-        req_names = set([v.name for v in self._requirements])
-
-        pstate = ProcessState()
-        # TODO: cleaner way to make config_provider
-        config_provider = Provider(self._strata_layer, 'config', lambda: self)
-        pstate.satisfy(config_provider, self)
-
-        for provider in self._providers:
-            # TODO: only recompute the following on satisfaction?
-            cur_deps = ConfigSpec._compute_slot_dep_map(vpm,
-                                                        pstate.name_value_map)
-            cur_rdeps = ConfigSpec._compute_rdep_map(cur_deps)
-            req_rdeps = req_names.union(*[cur_rdeps[rn] for rn in req_names])
-            var_name = provider.var_name
-            if var_name not in req_rdeps:
-                pstate.prune(provider, '<no refs>')
-                continue
-            elif pstate.is_satisfied(var_name):
-                _sat_by = pstate.name_satisfier_map[var_name]
-                pstate.prune(provider, '<already satisfied by %r>' % _sat_by)
-                continue
-            try:
-                value = inject(provider.func, pstate.name_value_map)
-            except Exception as e:
-                pstate.unsatisfy(provider, e)
-            else:
-                pstate.satisfy(provider, value)
-        self._result_map = pstate.name_value_map
-        self._provider_results = pstate.provider_result_map
-        self._unresolved = req_rdeps - set(self._result_map)
-
-        if self._unresolved:  # TODO: compare against self._requirements
-            sorted_unres = sorted(self._unresolved)
-            raise ConfigException('could not resolve: %r' % sorted_unres)
-        if DEBUG:
-            print pstate
-
-    def _process(self):
+        # TODO: are there any cases where reprocessing would be necessary?
         req_names = set([v.name for v in self._requirements])
 
         pstate = ProcessState(debug=True)
+        # TODO: cleaner way to make config_provider
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
         pstate.satisfy(config_provider, self)
         self._pstate = pstate
         # TODO: there could theoretically be some sorting of requirements here
         for var_name in req_names:
-            val = self._fulfill_one(var_name, pstate)
+            val = self._process_one(var_name, pstate)
             print var_name, '-', val
         self._result_map = pstate.name_value_map
         self._provider_results = pstate.provider_result_map
@@ -373,7 +334,7 @@ class BaseConfig(object):
             print pstate
         return
 
-    def _fulfill_one(self, name, pstate):
+    def _process_one(self, name, pstate):
         if pstate.is_satisfied(name):
             return pstate.name_value_map[name]
         cfg_spec = self._config_spec
@@ -383,7 +344,7 @@ class BaseConfig(object):
             value = 'NOPE'
             cur_reqs = cp.dep_names
             for cr in cur_reqs:
-                self._fulfill_one(cr, pstate)
+                self._process_one(cr, pstate)
             if not all([pstate.is_satisfied(cr) for cr in cur_reqs]):
                 #print "!! can't process", cp, cur_reqs
                 continue
@@ -396,7 +357,6 @@ class BaseConfig(object):
                 pstate.satisfy(cp, value)
                 break
         return value
-
 
 
 # ProviderSortKey
