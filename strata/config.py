@@ -30,6 +30,13 @@ that the Provider will actually produce a value suitable for a given
 Variable. The "requirements" construct provides a mechanism for
 allowing a Config to generate an exception if a Variable is
 unprovided, and allow other Variables to pass unprovided.
+
+* How to differentiate between variables that are required, variables
+  that are optional (will be tried not an error if not provided), and
+  pruned variables (ones that aren't required and aren't dependencies
+  of any other variables).
+
+# TODO: set Pruned state on ProcessState
 """
 
 from itertools import chain
@@ -313,10 +320,9 @@ class BaseConfig(object):
         self.__dict__.update(self._result_map)
 
     def _process(self):
-        # TODO: are there any cases where reprocessing would be necessary?
         req_names = set([v.name for v in self._requirements])
 
-        pstate = ProcessState(debug=True)
+        pstate = ProcessState()
         # TODO: cleaner way to make config_provider
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
         pstate.satisfy(config_provider, self)
@@ -344,13 +350,13 @@ class BaseConfig(object):
         vpm = cfg_spec.var_provider_map
         cur_providers = vpm[name]
         for cp in cur_providers:
-            value = 'NOPE'
             cur_reqs = cp.dep_names
             for cr in cur_reqs:
                 self._process_one(cr, pstate)
             if not all([pstate.is_satisfied(cr) for cr in cur_reqs]):
                 #print "!! can't process", cp, cur_reqs
                 continue
+            # TODO: cache bound version?
             cp_bound = cp.get_bound(self._layer_map[cp.layer_type])
             try:
                 value = inject(cp_bound.func, pstate.name_value_map)
