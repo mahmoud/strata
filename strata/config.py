@@ -317,7 +317,7 @@ class BaseConfig(object):
         req_names = set([v.name for v in self._requirements])
 
         pstate = ProcessState()
-
+        import pdb;pdb.set_trace()
         # TODO: cleaner way to make config_provider
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
         pstate.satisfy(config_provider, self)
@@ -351,6 +351,44 @@ class BaseConfig(object):
             raise ConfigException('could not resolve: %r' % sorted_unres)
         if DEBUG:
             print pstate
+
+    def _process(self):
+        req_names = set([v.name for v in self._requirements])
+
+        pstate = ProcessState(debug=True)
+        config_provider = Provider(self._strata_layer, 'config', lambda: self)
+        pstate.satisfy(config_provider, self)
+        self._pstate = pstate
+        # TODO: there could theoretically be some sorting of requirements here
+        for var_name in req_names:
+            val = self._fulfill_one(var_name, pstate)
+            print var_name, '-', val
+        return
+
+    def _fulfill_one(self, name, pstate):
+        if pstate.is_satisfied(name):
+            return pstate.name_value_map[name]
+        cfg_spec = self._config_spec
+        vpm = cfg_spec.var_provider_map
+        cur_providers = vpm[name]
+        for cp in cur_providers:
+            value = 'NOPE'
+            cur_reqs = cp.dep_names
+            for cr in cur_reqs:
+                self._fulfill_one(cr, pstate)
+            if not all([pstate.is_satisfied(cr) for cr in cur_reqs]):
+                #print "!! can't process", cp, cur_reqs
+                continue
+            cp_bound = cp.get_bound(self._layer_map[cp.layer_type])
+            try:
+                value = inject(cp_bound.func, pstate.name_value_map)
+            except Exception as e:
+                pstate.unsatisfy(cp, e)
+            else:
+                pstate.satisfy(cp, value)
+                break
+        return value
+
 
 
 # ProviderSortKey
