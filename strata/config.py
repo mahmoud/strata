@@ -301,7 +301,6 @@ class BaseConfig(object):
 
         if not self._deferred:
             self._process()
-            self.__dict__.update(self._result_map)
 
     def __repr__(self):
         # would a non-constructor style repr be more helpful?
@@ -309,6 +308,9 @@ class BaseConfig(object):
         kw_str = ', '.join(['%s=%r' % (k, v) for k, v
                             in self._input_kwargs.items()])
         return '%s(%s)' % (cn, kw_str)
+
+    def _post_process(self):
+        self.__dict__.update(self._result_map)
 
     def _process(self):
         # TODO: are there any cases where reprocessing would be necessary?
@@ -332,6 +334,7 @@ class BaseConfig(object):
             raise ConfigException('could not resolve: %r' % sorted_unres)
         if DEBUG:
             print pstate
+        self._post_process()
         return
 
     def _process_one(self, name, pstate):
