@@ -37,6 +37,7 @@ unprovided, and allow other Variables to pass unprovided.
   of any other variables).
 
 # TODO: set Pruned state on ProcessState
+# TODO: is it ok to keep a reference to pstate/providers?
 """
 
 from itertools import chain
@@ -239,13 +240,62 @@ def _get_consumer_depth(name, vcm):
     return max([_get_consumer_depth(cn, vcm) for cn in to_proc]) + 1
 
 
-class ProcessState(object):
-    def __init__(self, debug=DEBUG):
+class ConfigProcessor(object):
+    def __init__(self, config, debug=DEBUG):
+        self.config = config
+        self.requirements = self.config.requirements
+        self.req_names = set([v.name for v in self.requirements])
+
+        self._init_layers()
+        self._init_providers()
+
         self.name_value_map = {}
         self.name_satisfier_map = {}
         self.name_result_map = {}  # only stores most recent result
         self.provider_result_map = {}
         self._debug = debug
+
+    def _init_layers(self):
+        self._strata_layer = StrataLayer(self.config)
+        layer_type_pairs = [(StrataLayer, self._strata_layer)]
+        layer_type_pairs.extend([(t, t()) for t in
+                                 self.config._config_spec.layerset.layers])
+        self.layers = [ltp[1] for ltp in layer_type_pairs]
+        self.layer_map = dict(layer_type_pairs)
+
+    def _init_providers(self):
+        vpm = self.config._config_spec.var_provider_map
+        bpm = self.bound_provider_map = {}
+        for name, provider_list in vpm.items():
+            bound_providers = [cp.get_bound(self._layer_map[cp.layer_type])
+                               for cp in provider_list]
+            bpm[name] = bound_providers
+        # TODO: cleaner way to make config_provider ?
+        config_provider = Provider(self._strata_layer, 'config', lambda: self)
+        self.satisfy(config_provider, self.config)
+
+    def process(self):
+        to_proc = list(self.req_names)
+
+        while to_proc:
+            cur_name = to_proc[-1]
+            if cur_name in self.name_value_map:
+                to_proc.pop()
+                continue
+            for cp in self.bound_provider_map[cur_name]:
+                untried_deps = [req for req in cp.dep_names
+                                if req not in self.name__map]
+                if untried_deps:
+                    # here i am
+                    continue
+                try:
+                    value = inject(cp.func, self.name_value_map)
+                except Exception as e:
+                    self.unsatisfy(cp, e)
+                else:
+                    self.satisfy(cp, value)
+                    break
+        return
 
     def is_satisfied(self, var_name):
         return var_name in self.name_value_map
@@ -316,45 +366,43 @@ class BaseConfig(object):
                             in self._input_kwargs.items()])
         return '%s(%s)' % (cn, kw_str)
 
+    def _pre_process(self):
+        pass
+
     def _post_process(self):
         self.__dict__.update(self._result_map)
 
     def _process(self):
         req_names = set([v.name for v in self._requirements])
 
-        pstate = ProcessState()
-        # TODO: cleaner way to make config_provider
-        config_provider = Provider(self._strata_layer, 'config', lambda: self)
-        pstate.satisfy(config_provider, self)
-        self._pstate = pstate
+        self._pstate = self._config_proc = ConfigProcessor()
+
         # TODO: there could theoretically be some sorting of requirements here
         for var_name in req_names:
-            val = self._process_one(var_name, pstate)
-            print var_name, '-', val
-        self._result_map = pstate.name_value_map
-        self._provider_results = pstate.provider_result_map
+            self._process_one(var_name, self._pstate)
+        self._result_map = self._pstate.name_value_map
+        self._provider_results = self._pstate.provider_result_map
         self._unresolved = req_names - set(self._result_map)
 
-        if self._unresolved:  # TODO: compare against self._requirements
+        if self._unresolved:
             sorted_unres = sorted(self._unresolved)
             raise ConfigException('could not resolve: %r' % sorted_unres)
         if DEBUG:
-            print pstate
+            print self._pstate
         self._post_process()
         return
 
     def _process_one(self, name, pstate):
         if pstate.is_satisfied(name):
             return pstate.name_value_map[name]
+        # TODO what exception to raise
         cfg_spec = self._config_spec
-        vpm = cfg_spec.var_provider_map
-        cur_providers = vpm[name]
+        cur_providers = cfg_spec.var_provider_map[name]
         for cp in cur_providers:
             cur_reqs = cp.dep_names
             for cr in cur_reqs:
                 self._process_one(cr, pstate)
             if not all([pstate.is_satisfied(cr) for cr in cur_reqs]):
-                #print "!! can't process", cp, cur_reqs
                 continue
             # TODO: cache bound version?
             cp_bound = cp.get_bound(self._layer_map[cp.layer_type])
@@ -365,7 +413,7 @@ class BaseConfig(object):
             else:
                 pstate.satisfy(cp, value)
                 break
-        return value
+        return
 
 
 # ProviderSortKey
