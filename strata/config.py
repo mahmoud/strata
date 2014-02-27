@@ -394,30 +394,6 @@ class BaseConfig(object):
         if DEBUG:
             print self._pstate
         self._post_process()
-        return
-
-    def _process_one(self, name, pstate):
-        if pstate.is_satisfied(name):
-            return pstate.name_value_map[name]
-        # TODO what exception to raise
-        cfg_spec = self._config_spec
-        cur_providers = cfg_spec.var_provider_map[name]
-        for cp in cur_providers:
-            cur_reqs = cp.dep_names
-            for cr in cur_reqs:
-                self._process_one(cr, pstate)
-            if not all([pstate.is_satisfied(cr) for cr in cur_reqs]):
-                continue
-            # TODO: cache bound version?
-            cp_bound = cp.get_bound(self._layer_map[cp.layer_type])
-            try:
-                value = inject(cp_bound.func, pstate.name_value_map)
-            except Exception as e:
-                pstate.unsatisfy(cp, e)
-            else:
-                pstate.satisfy(cp, value)
-                break
-        return
 
 
 # ProviderSortKey
