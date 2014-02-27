@@ -243,17 +243,17 @@ def _get_consumer_depth(name, vcm):
 class ConfigProcessor(object):
     def __init__(self, config, debug=DEBUG):
         self.config = config
-        self.requirements = self.config.requirements
+        self.requirements = self.config._requirements
         self.req_names = set([v.name for v in self.requirements])
-
-        self._init_layers()
-        self._init_providers()
 
         self.name_value_map = {}
         self.name_satisfier_map = {}
         self.name_result_map = {}  # only stores most recent result
         self.provider_result_map = {}
         self._debug = debug
+
+        self._init_layers()
+        self._init_providers()
 
     def _init_layers(self):
         self._strata_layer = StrataLayer(self.config)
@@ -267,7 +267,7 @@ class ConfigProcessor(object):
         vpm = self.config._config_spec.var_provider_map
         bpm = self.bound_provider_map = {}
         for name, provider_list in vpm.items():
-            bound_providers = [cp.get_bound(self._layer_map[cp.layer_type])
+            bound_providers = [cp.get_bound(self.layer_map[cp.layer_type])
                                for cp in provider_list]
             bpm[name] = bound_providers
         # TODO: cleaner way to make config_provider ?
@@ -275,27 +275,33 @@ class ConfigProcessor(object):
         self.satisfy(config_provider, self.config)
 
     def process(self):
-        to_proc = list(self.req_names)
-
+        bpm = self.bound_provider_map
+        # TODO: some sorting of requirements
+        to_proc = sum([list(reversed(bpm[var_name]))
+                       for var_name in self.req_names], [])
         while to_proc:
-            cur_name = to_proc[-1]
-            if cur_name in self.name_value_map:
-                to_proc.pop()
+            cp = to_proc.pop()
+            if cp in self.provider_result_map:
+                continue  # already run/memoized
+            if cp.var_name in self.name_value_map:
+                continue  # already satisfied
+            unsat_deps = [dep for dep in cp.dep_names
+                          if dep not in self.name_value_map]
+            # name_result_map instead of name_value_map? shouldn't matter.
+            if unsat_deps:
+                to_proc.append(cp)  # repush current
+                for dep_name in unsat_deps:
+                    if dep_name in self.name_value_map:
+                        # TODO
+                        print 'pre-tried but not satisfied, prolly failed'
+                    to_proc.extend(list(reversed(bpm[dep_name])))
                 continue
-            for cp in self.bound_provider_map[cur_name]:
-                untried_deps = [req for req in cp.dep_names
-                                if req not in self.name__map]
-                if untried_deps:
-                    # here i am
-                    continue
-                try:
-                    value = inject(cp.func, self.name_value_map)
-                except Exception as e:
-                    self.unsatisfy(cp, e)
-                else:
-                    self.satisfy(cp, value)
-                    break
-        return
+            try:
+                value = inject(cp.func, self.name_value_map)
+            except Exception as e:
+                self.unsatisfy(cp, e)
+            else:
+                self.satisfy(cp, value)
 
     def is_satisfied(self, var_name):
         return var_name in self.name_value_map
@@ -375,13 +381,11 @@ class BaseConfig(object):
     def _process(self):
         req_names = set([v.name for v in self._requirements])
 
-        self._pstate = self._config_proc = ConfigProcessor()
+        self._pstate = self._config_proc = ConfigProcessor(self)
 
-        # TODO: there could theoretically be some sorting of requirements here
-        for var_name in req_names:
-            self._process_one(var_name, self._pstate)
-        self._result_map = self._pstate.name_value_map
-        self._provider_results = self._pstate.provider_result_map
+        self._config_proc.process()
+        self._result_map = self._config_proc.name_value_map
+        self._provider_results = self._config_proc.provider_result_map
         self._unresolved = req_names - set(self._result_map)
 
         if self._unresolved:
