@@ -39,11 +39,10 @@ unprovided, and allow other Variables to pass unprovided.
 
 # TODO: is it ok to keep a reference to pstate/providers?
 
-"Could not provide `var_name`, required by `requirers`, received the following errors: ..."
 """
 
 from itertools import chain
-from collections import namedtuple
+from collections import namedtuple, deque
 
 from .core import Layer, DEBUG, Provider
 from .utils import inject
@@ -133,7 +132,7 @@ class ConfigSpec(object):
         reqs = list(self.variables)
         reqs.extend([r for r in requirements if r not in self.variables])
         autoprovided = [layer._get_autoprovided() for layer in layers]
-        reqs.extend(chain.from_iterable(autoprovided))
+        reqs.extend(chain(*autoprovided))
         if DEBUG:
             print 'reqs:', sorted(set([r.name for r in reqs]))
         var_name_map = dict([(v.name, v) for v in reqs])
@@ -279,40 +278,50 @@ class ConfigProcessor(object):
                                    lambda: self.config)
         bpm['config'] = [config_provider]
         self.satisfy(config_provider, self.config)
-        bpl.extend(sum(bpm.values(), []))
+        bpl.extend(chain(*bpm.values()))
+
+    def _build_error(self, var_name):
+        # provide -> satisfy?
+        variable = self.config._config_spec.var
+        consumers = list(self.config._config_spec.slot_dep_map[var_name])
+        msg = ('could not provide %r, required by %r, '
+               'encountered the following errors:'
+               % (var_name, consumers))
+        lines = [msg]
+        lines.extend([' - %s: %r' % (e.by.layer_type.__name__, e.value)
+                       for e in self.name_result_map[var_name]])
+        return '\n'.join(lines)
 
     def process(self):
-        bpm = self.bound_provider_map
+        bpm, prm = self.bound_provider_map, self.provider_result_map
+        nrm, nvm = self.name_result_map, self.name_value_map
         # TODO: some sorting of requirements
-        to_proc = sum([list(reversed(bpm[var_name]))
-                       for var_name in self.req_names], [])
+        to_proc = deque(chain(*[bpm[var_name] for var_name in self.req_names]))
         while to_proc:
-            cp = to_proc.pop()
-            if cp in self.provider_result_map:
+            cp = to_proc.popleft()
+            if cp in prm:
                 continue  # already run/memoized
-            if cp.var_name in self.name_value_map:
+            if cp.var_name in nvm:
                 continue  # already satisfied
-            unsat_deps = [dep for dep in cp.dep_names
-                          if dep not in self.name_value_map]
+            unsat_deps = [dep for dep in cp.dep_names if dep not in nvm]
             if unsat_deps:
-                to_extend = [cp]  # repushing current
+                to_proc.appendleft(cp)  # repushing current
                 for dep_name in unsat_deps:
-                    if (len(self.name_result_map.get(dep_name, [])) >=
-                        len(self.bound_provider_map[dep_name])):
-                        # TODO
-                        raise ValueError('pre-tried but not satisfied, prolly failed: %r' % dep_name)
-
-                    to_extend.extend(list(reversed(bpm[dep_name])))
-                to_proc.extend(to_extend)
+                    if (len(nrm.get(dep_name, [])) >= len(bpm[dep_name])):
+                        # TODO error message
+                        # TODO try default
+                        msg = self._build_error(dep_name)
+                        raise ValueError(msg)
+                    to_proc.extendleft(bpm[dep_name])
                 continue
             try:
-                value = inject(cp.func, self.name_value_map)
+                value = inject(cp.func, nvm)
             except Exception as e:
                 self.unsatisfy(cp, e)
             else:
                 self.satisfy(cp, value)
         for bp in self.bound_provider_list:
-            if bp not in self.provider_result_map:
+            if bp not in prm:
                 self.prune(bp, '<no refs>')
 
     def is_satisfied(self, var_name):
