@@ -35,9 +35,11 @@ unprovided, and allow other Variables to pass unprovided.
   that are optional (will be tried not an error if not provided), and
   pruned variables (ones that aren't required and aren't dependencies
   of any other variables).
+* "Required" if no default value is provided.
 
-# TODO: set Pruned state on ProcessState
 # TODO: is it ok to keep a reference to pstate/providers?
+
+"Could not provide `var_name`, required by `requirers`, received the following errors: ..."
 """
 
 from itertools import chain
@@ -272,7 +274,9 @@ class ConfigProcessor(object):
                                for cp in provider_list]
             bpm[name] = bound_providers
         # TODO: cleaner way to make config_provider ?
-        config_provider = Provider(self._strata_layer, 'config', lambda: self)
+        config_provider = Provider(self._strata_layer,
+                                   'config',
+                                   lambda: self.config)
         bpm['config'] = [config_provider]
         self.satisfy(config_provider, self.config)
         bpl.extend(sum(bpm.values(), []))
@@ -290,14 +294,16 @@ class ConfigProcessor(object):
                 continue  # already satisfied
             unsat_deps = [dep for dep in cp.dep_names
                           if dep not in self.name_value_map]
-            # name_result_map instead of name_value_map? shouldn't matter.
             if unsat_deps:
-                to_proc.append(cp)  # repush current
+                to_extend = [cp]  # repushing current
                 for dep_name in unsat_deps:
-                    if dep_name in self.name_result_map:
+                    if (len(self.name_result_map.get(dep_name, [])) >=
+                        len(self.bound_provider_map[dep_name])):
                         # TODO
-                        print 'pre-tried but not satisfied, prolly failed'
-                    to_proc.extend(list(reversed(bpm[dep_name])))
+                        raise ValueError('pre-tried but not satisfied, prolly failed: %r' % dep_name)
+
+                    to_extend.extend(list(reversed(bpm[dep_name])))
+                to_proc.extend(to_extend)
                 continue
             try:
                 value = inject(cp.func, self.name_value_map)
@@ -336,7 +342,7 @@ class ConfigProcessor(object):
         return self.register_result(provider, result)
 
     def register_result(self, provider, result):
-        self.name_result_map[provider.var_name] = result
+        self.name_result_map.setdefault(provider.var_name, []).append(result)
         self.provider_result_map[provider] = result
         return result
 
