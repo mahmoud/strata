@@ -282,14 +282,14 @@ class ConfigProcessor(object):
 
     def _build_error(self, var_name):
         # provide -> satisfy?
-        variable = self.config._config_spec.var
-        consumers = list(self.config._config_spec.slot_dep_map[var_name])
+        consumers = self.config._config_spec.var_consumer_map[var_name]
+        consumer_names = [v.var_name for v in consumers]
         msg = ('could not provide %r, required by %r, '
                'encountered the following errors:'
-               % (var_name, consumers))
+               % (var_name, consumer_names))
         lines = [msg]
         lines.extend([' - %s: %r' % (e.by.layer_type.__name__, e.value)
-                       for e in self.name_result_map[var_name]])
+                      for e in self.name_result_map[var_name]])
         return '\n'.join(lines)
 
     def process(self):
