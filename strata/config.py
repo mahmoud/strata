@@ -305,6 +305,9 @@ class ConfigProcessor(object):
                 self.unsatisfy(cp, e)
             else:
                 self.satisfy(cp, value)
+        for bp in self.bound_provider_list:
+            if bp not in self.provider_result_map:
+                self.prune(bp, '<no refs>')
 
     def is_satisfied(self, var_name):
         return var_name in self.name_value_map
@@ -314,6 +317,10 @@ class ConfigProcessor(object):
         result = Satisfied(by=provider, value=value)
         self.name_value_map[provider.var_name] = value
         self.name_satisfier_map[provider.var_name] = provider
+        bps = self.bound_provider_map[provider.var_name]
+        pruned_bps = bps[bps.index(provider) + 1:]
+        for pbp in pruned_bps:
+            self.prune(pbp, '<already satisfied>')
         return self.register_result(provider, result)
 
     def prune(self, provider, value):
@@ -341,8 +348,8 @@ class ConfigProcessor(object):
                    len(self.name_value_map)))
 
     def to_table(self):
-        #import os, sys
-        #sys.path.append(os.path.expanduser('~/projects/boltons'))
+        import os, sys
+        sys.path.append(os.path.expanduser('~/projects/boltons'))
         from boltons.tableutils import Table
 
         lookup = {}
