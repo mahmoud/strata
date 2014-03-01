@@ -266,13 +266,16 @@ class ConfigProcessor(object):
     def _init_providers(self):
         vpm = self.config._config_spec.var_provider_map
         bpm = self.bound_provider_map = {}
+        bpl = self.bound_provider_list = []
         for name, provider_list in vpm.items():
             bound_providers = [cp.get_bound(self.layer_map[cp.layer_type])
                                for cp in provider_list]
             bpm[name] = bound_providers
         # TODO: cleaner way to make config_provider ?
         config_provider = Provider(self._strata_layer, 'config', lambda: self)
+        bpm['config'] = [config_provider]
         self.satisfy(config_provider, self.config)
+        bpl.extend(sum(bpm.values(), []))
 
     def process(self):
         bpm = self.bound_provider_map
@@ -291,7 +294,7 @@ class ConfigProcessor(object):
             if unsat_deps:
                 to_proc.append(cp)  # repush current
                 for dep_name in unsat_deps:
-                    if dep_name in self.name_value_map:
+                    if dep_name in self.name_result_map:
                         # TODO
                         print 'pre-tried but not satisfied, prolly failed'
                     to_proc.extend(list(reversed(bpm[dep_name])))
@@ -336,6 +339,37 @@ class ConfigProcessor(object):
                    len(self.provider_result_map),
                    len(self.name_result_map),
                    len(self.name_value_map)))
+
+    def to_table(self):
+        #import os, sys
+        #sys.path.append(os.path.expanduser('~/projects/boltons'))
+        from boltons.tableutils import Table
+
+        lookup = {}
+        for bp in self.bound_provider_list:
+            lookup.setdefault(bp.layer_type, {})[bp.var_name] = bp
+        sorted_vars = self.config._config_spec.slot_order
+        lol = [[''] + sorted_vars]
+        for layer in self.layers:
+            layer_type = layer.__class__
+            cur_row = [layer_type.__name__]
+            for var_name in sorted_vars:
+                try:
+                    cur_provider = lookup[layer_type][var_name]
+                except KeyError:
+                    val = ''
+                else:
+                    try:
+                        res = self.provider_result_map[cur_provider]
+                        if isinstance(res, Satisfied):
+                            val = res.value
+                        else:
+                            val = 'X'
+                    except KeyError:
+                        val = '-'
+                cur_row.append(val)
+            lol.append(cur_row)
+        return Table(lol)
 
 
 class BaseConfig(object):
