@@ -29,7 +29,7 @@ class Variable(object):
     __metaclass__ = VariableMeta
 
     name = None
-    value_type = None
+    validator = None
 
     def get_default(self):
         try:
@@ -38,8 +38,8 @@ class Variable(object):
             raise MissingValue('no default specified for: %s' % self.name)
 
     def process_value(self, value):
-        if self.value_type:
-            return self.value_type(value)
+        if self.validator:
+            return self.validator(value)
         return value
 
 
@@ -209,7 +209,7 @@ def func2variable(func, class_name=None, **kwargs):
 
 
 def autoprovide(*args, **kwargs):
-    attrs = {'value_type': kwargs.pop('value_type', None),
+    attrs = {'validator': kwargs.pop('validator', None),
              'description': kwargs.pop('description', None),
              'summary': kwargs.pop('summary', None)}
     if kwargs:
