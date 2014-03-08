@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from strata import Layer, LayerSet, ConfigSpec
+from strata import Layer, ConfigSpec
 from strata.core import ez_vars  # TODO
 from strata.config import DependencyCycle
 
@@ -32,10 +32,10 @@ class MutualCycleLayerTwo(Layer):
 
 
 def test_self_cycle():
-    layerset = LayerSet('default', [SelfCycleLayer])
-    variables = ez_vars(layerset)
+    layers = [SelfCycleLayer]
+    variables = ez_vars(layers)
     try:
-        ConfigSpec(variables, layerset)
+        ConfigSpec(variables, layers)
     except Exception as e:
         assert type(e) is DependencyCycle
         return
@@ -43,7 +43,7 @@ def test_self_cycle():
 
 
 def test_self_mutual_cycle():
-    layerset = LayerSet('default', [SelfMutualCycleLayer])
+    layerset = [SelfMutualCycleLayer]
     variables = ez_vars(layerset)
     try:
         ConfigSpec(variables, layerset)
@@ -54,10 +54,10 @@ def test_self_mutual_cycle():
 
 
 def test_mutual_cycle():
-    layerset = LayerSet('default', [MutualCycleLayerOne, MutualCycleLayerTwo])
-    variables = ez_vars(layerset)
+    layers = [MutualCycleLayerOne, MutualCycleLayerTwo]
+    variables = ez_vars(layers)
     try:
-        ConfigSpec(variables, layerset)
+        ConfigSpec(variables, layers)
     except Exception as e:
         assert type(e) is DependencyCycle
         return
@@ -70,10 +70,10 @@ def test_masking_self_cycle():
         def var_a(self):  # no deps
             return 'masked a'
 
-    layerset = LayerSet('default', [MaskingLayer, SelfCycleLayer])
-    variables = ez_vars(layerset)
+    layers = [MaskingLayer, SelfCycleLayer]
+    variables = ez_vars(layers)
     try:
-        ConfigSpec(variables, layerset)
+        ConfigSpec(variables, layers)
     except Exception as e:
         assert type(e) is DependencyCycle
         return

@@ -89,19 +89,19 @@ class Unsatisfied(Resolution):
 # the following too complex. That one will prolly have:
 #     @property
 #     def env_layer_map(self):
-#        return dict([(ls.env, ls.layers) for ls in self.layersets])
+#        return dict([(ls.env, ls.layers) for ls in self.layers])
 
 
 class ConfigSpec(object):
-    def __init__(self, variables, layerset):
-        self.layerset = layerset
+    def __init__(self, variables, layers):
+        self.layers = list(layers or [])
         self.variables = list(variables or [])
         self._compute()
 
     @classmethod
     def from_modules(cls, modules):
-        """find all variables/layersets in the modules.
-        One ConfigSpec per layerset.
+        """find all variables/layers in the modules.
+        One ConfigSpec per layer list.
 
         TODO: except/warn on overwrites/unused types?
         """
@@ -127,7 +127,7 @@ class ConfigSpec(object):
         requirements = requirements or []
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
-        layers = [StrataLayer] + self.layerset.layers
+        layers = [StrataLayer] + self.layers
 
         reqs = list(self.variables)
         reqs.extend([r for r in requirements if r not in self.variables])
@@ -260,7 +260,7 @@ class ConfigProcessor(object):
         self._strata_layer = StrataLayer(self.config)
         layer_type_pairs = [(StrataLayer, self._strata_layer)]
         layer_type_pairs.extend([(t, t()) for t in
-                                 self.config._config_spec.layerset.layers])
+                                 self.config._config_spec.layers])
         self.layers = [ltp[1] for ltp in layer_type_pairs]
         self.layer_map = dict(layer_type_pairs)
 
@@ -407,7 +407,7 @@ class BaseConfig(object):
 
         self._strata_layer = StrataLayer(self)
         layer_type_pairs = [(StrataLayer, self._strata_layer)]
-        layer_type_pairs.extend([(t, t()) for t in cfg_spec.layerset.layers])
+        layer_type_pairs.extend([(t, t()) for t in cfg_spec.layers])
         self._layers = [ltp[1] for ltp in layer_type_pairs]
         self._layer_map = dict(layer_type_pairs)
 

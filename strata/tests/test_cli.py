@@ -2,7 +2,7 @@
 
 import common
 
-from strata.core import Variable, LayerSet, ez_vars
+from strata.core import Variable, ez_vars
 from strata.config import ConfigSpec
 from strata.layers import CLILayer, KwargLayer
 
@@ -17,10 +17,10 @@ class VarTwo(Variable):
     cli_arg_name = 'two'
 
 
-def get_cli_config_spec(layerset=None):
-    layerset = layerset or LayerSet('cli_set', [KwargLayer, CLILayer])
-    variables = [VarOne, VarTwo] + ez_vars(layerset)
-    cspec = ConfigSpec(variables, layerset)
+def get_cli_config_spec(layers=None):
+    layers = layers or [KwargLayer, CLILayer]
+    variables = [VarOne, VarTwo] + ez_vars(layers)
+    cspec = ConfigSpec(variables, layers)
     return cspec
 
 

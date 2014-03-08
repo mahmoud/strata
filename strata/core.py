@@ -111,23 +111,6 @@ class Layer(object):
         return '%s()' % self.__class__.__name__
 
 
-class LayerSet(object):
-    def __init__(self, env_name, layers):
-        # TODO: assert all Layers are unique types?
-        self.env_name = env_name
-        self.layers = list(layers)
-
-    def __repr__(self):
-        cn = self.__class__.__name__
-        return '%s(%r, %r)' % (cn, self.env_name, self.layers)
-
-    def __iter__(self):
-        return iter(self.layers)
-
-    def __getitem__(self, key):
-        return self.layers.__getitem__(key)
-
-
 class Provider(object):
     """\
     Used internally to represent a single Layer instance's implementation
@@ -183,14 +166,14 @@ class FileValue(object):
         self.file_path = file_path
 
 
-def ez_vars(layerset):
+def ez_vars(layers):
     """
     A (most likely temporary) utility function to make Variables off
     of Layer definitions. Something like this should maybe exist in
     the future, using decorators.
     """
     names = set()
-    for layer in layerset.layers:
+    for layer in layers:
         for name in dir(layer):
             if name.startswith('_'):
                 continue

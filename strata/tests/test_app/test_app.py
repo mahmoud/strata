@@ -26,7 +26,7 @@ import os
 _CUR_PATH = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_LINKS_FILE_PATH = os.path.join(_CUR_PATH, 'links.txt')
 
-from strata import Layer, LayerSet, ConfigSpec, ConfigException
+from strata import Layer, ConfigSpec, ConfigException
 from strata.layers import CLILayer, KwargLayer, EnvVarLayer
 
 from app_vars import VAR_LIST
@@ -52,15 +52,13 @@ class DevDefaultLayer(Layer):
         return '%s:%s/' % (server_host, server_port)
 
 
-_COMMON_LAYERS = [KwargLayer, CLILayer, EnvVarLayer]
-_PROD_LAYERSET = LayerSet('prod', _COMMON_LAYERS)
-PROD_CONFIGSPEC = ConfigSpec(VAR_LIST, _PROD_LAYERSET)
+_PROD_LAYERS = [KwargLayer, CLILayer, EnvVarLayer]
+PROD_CONFIGSPEC = ConfigSpec(VAR_LIST, _PROD_LAYERS)
 
 ProdConfig = PROD_CONFIGSPEC.make_config(name='ProdConfig')
 
-_DEV_LAYERS = _COMMON_LAYERS + [DevDefaultLayer]
-DEV_LAYERSET = LayerSet('dev', _DEV_LAYERS)
-DEV_CONFIGSPEC = ConfigSpec(VAR_LIST, DEV_LAYERSET)
+_DEV_LAYERS = _PROD_LAYERS + [DevDefaultLayer]
+DEV_CONFIGSPEC = ConfigSpec(VAR_LIST, _DEV_LAYERS)
 
 DevConfig = DEV_CONFIGSPEC.make_config(name='DevConfig')
 

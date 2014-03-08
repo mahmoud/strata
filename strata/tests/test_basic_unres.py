@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from strata import Layer, LayerSet, ConfigSpec, Variable
+from strata import Layer, ConfigSpec, Variable
 from strata.core import ez_vars  # TODO
 from strata.config import UnresolvedDependency
 
@@ -11,10 +11,10 @@ class TriviallyMissingLayer(Layer):
 
 
 def test_trivially_missing():
-    layerset = LayerSet('default', [TriviallyMissingLayer])
-    variables = ez_vars(layerset)
+    layers = [TriviallyMissingLayer]
+    variables = ez_vars(layers)
     try:
-        ConfigSpec(variables, layerset)
+        ConfigSpec(variables, layers)
     except Exception as e:
         assert type(e) is UnresolvedDependency
         return
@@ -32,9 +32,9 @@ def test_unmeetable_requirements():
     class UnprovidedVariable(Variable):
         pass
 
-    layerset = LayerSet('default', [OKLayer])
-    variables = ez_vars(layerset)
-    cspec = ConfigSpec(variables, layerset)
+    layers = [OKLayer]
+    variables = ez_vars(layers)
+    cspec = ConfigSpec(variables, layers)
     try:
         cspec.make_config(reqs=[UnprovidedVariable])
     except Exception as e:
