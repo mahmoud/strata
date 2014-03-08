@@ -13,8 +13,7 @@ class Validator(object):
 
 
 class Text(Validator):
-    def validate(self, value):
-        pass
+    pass
 
 
 class Bytes(Validator):
@@ -22,18 +21,54 @@ class Bytes(Validator):
 
 
 class Integer(Validator):
-    pass
+    # TODO: strict.  strict only coerces from string, expects an int
+    # in all other occasions or perhaps only complains on floats.
+    def __init__(self, min_val=None, max_val=None):
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def validate(self, value):
+        ret = int(value)
+        if self.min_val is not None:
+            if ret < self.min_val:
+                raise ValueError()
+        if self.max_val is not None:
+            if ret > self.max_val:
+                raise ValueError()
+        return ret
 
 
 class Float(Validator):
-    pass
+    def __init__(self, min_val=None, max_val=None, ndigits=None):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.ndigits = ndigits
+        if ndigits is not None:
+            round(0.0, self.ndigits)  # sanity check ndigits
+
+    def validate(self, value):
+        ret = float(value)
+        if self.ndigits is not None:
+            ret = round(value, self.ndigits)
+        if self.min_val is not None:
+            if ret < self.min_val:
+                raise ValueError()
+        if self.max_val is not None:
+            if ret > self.max_val:
+                raise ValueError()
+        return ret
 
 
 class Boolean(Validator):
     def __init__(self, strict=True):
         pass
-
     # non-strict can accept case-insensitive strings
+
+
+class Choice(Validator):
+    def __init__(self, choices=None, item_type=None):
+        self.choices = choices
+        self.item_type = item_type
 
 
 class List(Validator):
