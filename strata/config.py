@@ -35,9 +35,15 @@ unprovided, and allow other Variables to pass unprovided.
   that are optional (will be tried not an error if not provided), and
   pruned variables (ones that aren't required and aren't dependencies
   of any other variables).
-* "Required" if no default value is provided.
+* "Required" if no default value is provided. This has to be known at
+  ConfigSpec time.
 
-# TODO: is it ok to keep a reference to pstate/providers?
+* TODO: is it ok to keep a reference to ConfigProcessor instance (and
+  all the providers)?
+* TODO: die on provided values that don't validate or continue on to
+  next provider?
+
+
 
 """
 
@@ -107,16 +113,9 @@ class ConfigSpec(object):
         """
         return cls([], [])
 
-    def make_config(self, name=None, reqs=None, default_defer=False):
+    def make_config(self, name=None, default_defer=False):
         name = name or 'Config'
-        reqs = set(self.variables) if reqs is None else set(reqs)
-
-        # check requirements
-        req_names = set([r.name for r in reqs])
-        var_names = set([v.name for v in self.variables])
-        if not req_names <= var_names:
-            self._compute(reqs)  # TODO: check that recomputation is safe
-
+        reqs = list(self.variables)
         attrs = {'_config_spec': self,
                  '_requirements': reqs,
                  '_default_defer': default_defer}
@@ -319,7 +318,9 @@ class ConfigProcessor(object):
             except Exception as e:
                 self.unsatisfy(cp, e)
             else:
+                validator = None
                 self.satisfy(cp, value)
+
         for bp in self.bound_provider_list:
             if bp not in prm:
                 self.prune(bp, '<no refs>')
@@ -437,7 +438,7 @@ class BaseConfig(object):
     def _process(self):
         req_names = set([v.name for v in self._requirements])
 
-        self._pstate = self._config_proc = ConfigProcessor(self)
+        self._config_proc = ConfigProcessor(self)  # TODO: make type pluggable
 
         self._config_proc.process()
         self._result_map = self._config_proc.name_value_map

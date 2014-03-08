@@ -33,10 +33,9 @@ def test_unmeetable_requirements():
         pass
 
     layers = [OKLayer]
-    variables = ez_vars(layers)
-    cspec = ConfigSpec(variables, layers)
+    variables = ez_vars(layers) + [UnprovidedVariable]
     try:
-        cspec.make_config(reqs=[UnprovidedVariable])
+        cspec = ConfigSpec(variables, layers)
     except Exception as e:
         assert type(e) is UnresolvedDependency
         return

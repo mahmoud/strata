@@ -21,7 +21,7 @@ class TestLayer(Layer):
 def test_integer():
     cspec = ConfigSpec([TestVariable], [TestLayer])
     TestConfig = cspec.make_config(name='TestConfig')
-    TestLayer.test_value = 5
+    TestLayer.test_value = 'hello'
     TestVariable.validator = Integer()
     test_config = TestConfig()
 

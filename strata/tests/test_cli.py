@@ -28,7 +28,7 @@ def get_cli_config(req_var_names=None):
     req_var_names = req_var_names or ['var_one', 'var_two', 'cli_help']
     cspec = get_cli_config_spec()
     req_vars = [v for v in cspec.variables if v.name in req_var_names]
-    return cspec.make_config(reqs=req_vars)
+    return cspec.make_config()
 
 
 def test_cli(add_two_to_argv=True):
