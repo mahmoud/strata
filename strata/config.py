@@ -109,9 +109,7 @@ class ConfigSpec(object):
 
     def make_config(self, name=None, default_defer=False):
         name = name or 'Config'
-        reqs = list(self.variables)
         attrs = {'_config_spec': self,
-                 '_requirements': reqs,
                  '_default_defer': default_defer}
         return type(name, (BaseConfig,), attrs)
 
@@ -119,8 +117,6 @@ class ConfigSpec(object):
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
         layers, variables = self.layers, self.variables
-        if DEBUG:
-            print 'reqs:', sorted(set([r.name for r in variables]))
         name_var_map = dict(self.name_var_map)
 
         to_proc = [v.name for v in variables]
@@ -192,7 +188,7 @@ class ConfigSpec(object):
 class ConfigProcessor(object):
     def __init__(self, config, debug=DEBUG):
         self.config = config
-        self.requirements = self.config._requirements
+        self.requirements = self.config._config_spec.variables
         self.req_names = set([v.name for v in self.requirements])
 
         self.name_value_map = {}
@@ -247,7 +243,7 @@ class ConfigProcessor(object):
     def process(self):
         bpm, prm = self.bound_provider_map, self.provider_result_map
         nrm, nvm = self.name_result_map, self.name_value_map
-        # TODO: some sorting of requirements
+
         to_proc = deque(chain(*[bpm[var_name] for var_name in self.req_names]))
         while to_proc:
             cp = to_proc.popleft()
@@ -348,7 +344,6 @@ class ConfigProcessor(object):
 
 class BaseConfig(object):
     _config_spec = None
-    _requirements = None
     _default_defer = False
 
     def __init__(self, **kwargs):
@@ -378,7 +373,7 @@ class BaseConfig(object):
         self._result_map = self._config_proc.name_value_map
         self._provider_results = self._config_proc.provider_result_map
 
-        req_names = set([v.name for v in self._requirements])
+        req_names = set([v.name for v in self._config_spec.variables])
         self._unresolved = req_names - set(self._result_map)
 
         if self._unresolved:
