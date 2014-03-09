@@ -54,6 +54,12 @@ def get_basic_config_spec(layers=None):
     return cspec
 
 
+def test_empty_configspec():
+    cspec = ConfigSpec([], [])
+    Config = cspec.make_config()
+    Config()
+
+
 def get_basic_config(req_var_names=None, cspec=None):
     cspec = cspec or get_basic_config_spec()
     return cspec.make_config()

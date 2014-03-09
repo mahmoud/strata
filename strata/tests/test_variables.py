@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from strata import Variable, Layer, ConfigSpec
-from strata.validators import Integer
+from strata.validators import Integer, Float
 
 
 class TestVariable(Variable):
@@ -35,5 +35,12 @@ def _do_value_test(value, expected, validator):
 
 
 def test_integer():
-    _do_value_test(5, 5, Integer())
-    _do_value_test('5', 5, Integer())
+    _do_value_test(5, 5, Integer(min_val=5))
+    _do_value_test('5', 5, Integer(max_val=5))
+    _do_value_test('0', 0, Integer())
+    _do_value_test('0', 0, int)
+
+
+def test_float():
+    _do_value_test(5.0, 5.0, Float(min_val=5, max_val=5))
+    _do_value_test(3.1415, 3.14, Float(ndigits=2))

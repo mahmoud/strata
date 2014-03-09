@@ -3,6 +3,9 @@
 import os
 
 
+# TODO: should validators also get a copy of the Variable?
+
+
 class Validator(object):
     def validate(self, value):
         "implement me"
@@ -106,4 +109,4 @@ class URL(Validator):
 
 
 class LocalPort(Validator):
-    pass  # check for openability
+    pass  # check for openability? probably too heavy/nuanced
