@@ -54,6 +54,7 @@ from .errors import (ConfigException,
                      NotProvidable,
                      DependencyCycle,
                      UnresolvedDependency)
+from .tableutils import Table
 
 
 class StrataLayer(Layer):
@@ -320,10 +321,6 @@ class ConfigProcessor(object):
                    len(self.name_value_map)))
 
     def to_table(self):
-        import os, sys
-        sys.path.append(os.path.expanduser('~/projects/boltons'))
-        from boltons.tableutils import Table
-
         lookup = {}
         for bp in self.bound_provider_list:
             lookup.setdefault(bp.layer_type, {})[bp.var_name] = bp

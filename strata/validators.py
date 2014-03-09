@@ -2,6 +2,7 @@
 
 import os
 
+from .fileutils import FilePerms
 
 # TODO: should validators also get a copy of the Variable?
 
@@ -82,13 +83,6 @@ class List(Validator):
 
     def validate(self, value):
         return self.list_type([self.item_type(x) for x in value])
-
-
-import os
-import sys
-sys.path.append(os.path.expanduser('~/projects/boltons'))
-
-from boltons.fileutils import FilePerms
 
 
 class FilePath(Validator):
