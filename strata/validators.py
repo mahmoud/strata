@@ -84,24 +84,44 @@ class List(Validator):
         return self.list_type([self.item_type(x) for x in value])
 
 
+import os
+import sys
+sys.path.append(os.path.expanduser('~/projects/boltons'))
+
+from boltons.fileutils import FilePerms
+
+
 class FilePath(Validator):
     # TODO
     #  * type? (dir/file/symlink)
     #  * size?
     #  * absolutify/relativize?
-    def __init__(self, exists=None, readable=None, writable=None,
-                 executable=None):
-        self.want_exists = exists
-        self.want_readable = readable
-        self.want_writable = writable
-        self.want_executable = executable
+    #  * owner/group
+    def __init__(self, should_exist=None, min_perms=None):
+        self.should_exist = should_exist
+        if min_perms is not None:
+            # TODO: check for integer
+            min_perms = FilePerms.from_int(min_perms)
+        self.min_perms = min_perms
 
     def validate(self, value):
-        if self.want_exists is not None:
-            if os.path.exists(value) != self.want_exists:
+        # check for valid path
+        does_exist = os.path.exists(value)
+        if self.should_exist is not None:
+            if does_exist != self.should_exist:
                 raise ValueError('expected %r exists = %r'
-                                 % (value, self.want_exists))
-        # etc.
+                                 % (value, self.should_exist))
+        if does_exist and self.min_perms is not None:
+            # TODO: can check for creatable with the perms specified
+            file_mode = os.lstat(value).st_mode
+            file_perms = FilePerms.from_int(file_mode)
+            file_perms_int = int(file_perms)  # TODO: operator overload this?
+            min_perms_int = int(self.min_perms)
+            if not file_perms_int == (file_perms_int | min_perms_int):
+                raise ValueError('minimum file permissions not met: file %r'
+                                 ' is %o, expected at least %o'
+                                 % (value, file_perms_int, min_perms_int))
+        return value
 
 
 class URL(Validator):
