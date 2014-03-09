@@ -2,6 +2,7 @@
 
 from strata import Variable
 
+
 class HostURL(Variable):
     name = 'host_url'
     cli_arg_name = 'host_url'
@@ -16,8 +17,7 @@ class LinkDatabasePath(Variable):
 class LocalHostingRootPath(Variable):
     cli_arg_name = 'local_root'
     is_config_kwarg = True
-
-    default_value = None
+    default_value = '/tmp/'
 
 
 class ServerHost(Variable):
@@ -33,7 +33,6 @@ class ServerPort(Variable):
 
 class SecretKey(Variable):
     env_var_name = 'EROSION_KEY'
-
 
 
 VAR_LIST = [LinkDatabasePath, LocalHostingRootPath,

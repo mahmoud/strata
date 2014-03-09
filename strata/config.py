@@ -54,7 +54,7 @@ from .errors import (ConfigException,
                      NotProvidable,
                      DependencyCycle,
                      UnresolvedDependency)
-from .layers import StrataConfigLayer
+from .layers import StrataConfigLayer, StrataDefaultLayer
 
 from .tableutils import Table
 
@@ -85,7 +85,9 @@ class Unsatisfied(Resolution):
 class ConfigSpec(object):
     def __init__(self, variables, layers):
         self._input_layers = list(layers or [])
-        self.layers = [StrataConfigLayer] + self._input_layers
+        self.layers = ([StrataConfigLayer]
+                       + self._input_layers
+                       + [StrataDefaultLayer])
 
         self._input_variables = list(variables or [])
 
@@ -203,10 +205,14 @@ class ConfigProcessor(object):
         self._init_providers()
 
     def _init_layers(self):
-        self._strata_layer = StrataConfigLayer(self.config)
-        layer_type_pairs = [(StrataConfigLayer, self._strata_layer)]
+        # this whole thing is pretty TODO
+        self._strata_config_layer = StrataConfigLayer(self.config)
+        self._strata_default_layer = StrataDefaultLayer()
+        layer_type_pairs = [(StrataConfigLayer, self._strata_config_layer)]
         layer_type_pairs.extend([(t, t()) for t in
-                                 self.config._config_spec.layers[1:]])
+                                 self.config._config_spec.layers[1:-1]])
+        layer_type_pairs.append((StrataDefaultLayer,
+                                 self._strata_default_layer))
         self.layers = [ltp[1] for ltp in layer_type_pairs]
         self.layer_map = dict(layer_type_pairs)
 
@@ -219,7 +225,7 @@ class ConfigProcessor(object):
                                for cp in provider_list]
             bpm[name] = bound_providers
         # TODO: cleaner way to make config_provider ?
-        config_provider = Provider(self._strata_layer,
+        config_provider = Provider(self._strata_config_layer,
                                    'config',
                                    lambda: self.config)
         bpm['config'] = [config_provider]

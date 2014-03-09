@@ -39,9 +39,6 @@ class DevDefaultLayer(Layer):
     def link_database_path(self):
         return _DEFAULT_LINKS_FILE_PATH
 
-    def local_hosting_root_path(self):
-        return None
-
     def server_host(self):
         return '0.0.0.0'
 

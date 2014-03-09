@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import operator
 from argparse import ArgumentParser
 
 from .core import Layer, Provider
@@ -154,6 +153,7 @@ class StrataDefaultLayer(Layer):
 
     @classmethod
     def _get_provider(cls, var):
+        # TODO: consider allowing a get_default() function
         if not hasattr(var, 'default_value'):
             raise NotProvidable(cls, var, cls._helpstr)
 
