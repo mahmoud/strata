@@ -128,3 +128,17 @@ class CLILayer(Layer):
 
     def cli_help(self, cli_argparser):
         return cli_argparser.format_help()
+
+####
+# Built-in Layers follow
+####
+
+
+class StrataConfigLayer(Layer):
+    _autoprovided = ['config']
+
+    def __init__(self, config):
+        self._config = config
+
+    def config(self):
+        return self._config

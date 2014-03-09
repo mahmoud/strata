@@ -48,23 +48,15 @@ unprovided, and allow other Variables to pass unprovided.
 from itertools import chain
 from collections import deque
 
-from .core import Layer, DEBUG, Provider
+from .core import DEBUG, Provider
 from .utils import inject
 from .errors import (ConfigException,
                      NotProvidable,
                      DependencyCycle,
                      UnresolvedDependency)
+from .layers import StrataConfigLayer
+
 from .tableutils import Table
-
-
-class StrataLayer(Layer):
-    _autoprovided = ['config']
-
-    def __init__(self, config):
-        self._config = config
-
-    def config(self):
-        return self._config
 
 
 class Resolution(object):
@@ -93,7 +85,7 @@ class Unsatisfied(Resolution):
 class ConfigSpec(object):
     def __init__(self, variables, layers):
         self._input_layers = list(layers or [])
-        self.layers = [StrataLayer] + self._input_layers
+        self.layers = [StrataConfigLayer] + self._input_layers
 
         self._input_variables = list(variables or [])
 
@@ -211,8 +203,8 @@ class ConfigProcessor(object):
         self._init_providers()
 
     def _init_layers(self):
-        self._strata_layer = StrataLayer(self.config)
-        layer_type_pairs = [(StrataLayer, self._strata_layer)]
+        self._strata_layer = StrataConfigLayer(self.config)
+        layer_type_pairs = [(StrataConfigLayer, self._strata_layer)]
         layer_type_pairs.extend([(t, t()) for t in
                                  self.config._config_spec.layers[1:]])
         self.layers = [ltp[1] for ltp in layer_type_pairs]
