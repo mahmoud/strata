@@ -18,11 +18,22 @@ class TestLayer(Layer):
         return self.test_value
 
 
-def test_integer():
-    cspec = ConfigSpec([TestVariable], [TestLayer])
-    TestConfig = cspec.make_config(name='TestConfig')
-    TestLayer.test_value = 'hello'
-    TestVariable.validator = Integer()
-    test_config = TestConfig()
+TEST_CSPEC = ConfigSpec([TestVariable], [TestLayer])
+TestConfig = TEST_CSPEC.make_config(name='TestConfig')
 
-    assert test_config.test_variable == 5
+
+def _do_value_test(value, expected, validator):
+    TestLayer.test_value = value
+    TestVariable.validator = validator
+    test_config = TestConfig(_defer=True)
+    try:
+        test_config._process()
+    except Exception as e:
+        assert isinstance(e, ValueError)
+        return
+    assert test_config.test_variable == expected
+
+
+def test_integer():
+    _do_value_test(5, 5, Integer())
+    _do_value_test('5', 5, Integer())

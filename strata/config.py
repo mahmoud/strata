@@ -100,8 +100,14 @@ class Unsatisfied(Resolution):
 
 class ConfigSpec(object):
     def __init__(self, variables, layers):
-        self.layers = list(layers or [])
+        self.layers = [StrataLayer] + list(layers or [])
         self.variables = list(variables or [])
+
+        ap_vars = [layer._get_autoprovided() for layer in self.layers]
+        self._ap_var_list = list(chain(*ap_vars))
+        self.variables.extend(self._ap_var_list)
+        self.name_var_map = dict([(v.name, v) for v in self.variables])
+
         self._compute()
 
     @classmethod
@@ -126,20 +132,20 @@ class ConfigSpec(object):
         requirements = requirements or []
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
-        layers = [StrataLayer] + self.layers
+        layers = self.layers  # [StrataLayer] + self.layers
 
-        reqs = list(self.variables)
-        reqs.extend([r for r in requirements if r not in self.variables])
-        autoprovided = [layer._get_autoprovided() for layer in layers]
-        reqs.extend(chain(*autoprovided))
+        reqs = self.variables
         if DEBUG:
-            print 'reqs:', sorted(set([r.name for r in reqs]))
-        var_name_map = dict([(v.name, v) for v in reqs])
+            to_print = sorted(set([r.name for r in reqs]))
+            if 'config' not in to_print:
+                import pdb;pdb.set_trace()
+            print 'reqs:', to_print
+        name_var_map = dict([(v.name, v) for v in reqs])
         to_proc = [v.name for v in reqs]
         unresolved = []
         while to_proc:
             cur_var_name = to_proc.pop()
-            var = var_name_map[cur_var_name]
+            var = name_var_map[cur_var_name]
             for layer in layers:
                 try:
                     provider = layer._get_provider(var)
@@ -148,9 +154,9 @@ class ConfigSpec(object):
                 vpm.setdefault(var.name, []).append(provider)
                 for dn in provider.dep_names:
                     vcm.setdefault(dn, []).append(provider)
-                    if dn not in var_name_map:
+                    if dn not in name_var_map:
                         unresolved.append(dn)
-                        var_name_map[dn] = None
+                        name_var_map[dn] = None
                         #to_proc.append(dn)
             if cur_var_name not in vpm:
                 raise UnresolvedDependency('no providers found for: %r' % var)
@@ -259,7 +265,7 @@ class ConfigProcessor(object):
         self._strata_layer = StrataLayer(self.config)
         layer_type_pairs = [(StrataLayer, self._strata_layer)]
         layer_type_pairs.extend([(t, t()) for t in
-                                 self.config._config_spec.layers])
+                                 self.config._config_spec.layers[1:]])
         self.layers = [ltp[1] for ltp in layer_type_pairs]
         self.layer_map = dict(layer_type_pairs)
 
@@ -318,8 +324,10 @@ class ConfigProcessor(object):
             except Exception as e:
                 self.unsatisfy(cp, e)
             else:
-                validator = None
-                self.satisfy(cp, value)
+                _var = self.config._config_spec.name_var_map[cp.var_name]
+                _var = _var()  # TODO
+                processed_value = _var.process_value(value)
+                self.satisfy(cp, processed_value)  # save unprocessed
 
         for bp in self.bound_provider_list:
             if bp not in prm:
@@ -401,24 +409,8 @@ class BaseConfig(object):
     _default_defer = False
 
     def __init__(self, **kwargs):
-        cfg_spec = self._config_spec
         self._deferred = kwargs.pop('_defer', self._default_defer)
-
         self._input_kwargs = dict(kwargs)
-
-        self._strata_layer = StrataLayer(self)
-        layer_type_pairs = [(StrataLayer, self._strata_layer)]
-        layer_type_pairs.extend([(t, t()) for t in cfg_spec.layers])
-        self._layers = [ltp[1] for ltp in layer_type_pairs]
-        self._layer_map = dict(layer_type_pairs)
-
-        self._providers = [p.get_bound(self._layer_map[p.layer_type])
-                           for p in cfg_spec.sorted_providers]
-        self._provider_results = {}
-        self._unresolved = set()
-
-        self._result_map = {}
-
         if not self._deferred:
             self._process()
 
