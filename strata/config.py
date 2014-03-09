@@ -100,14 +100,16 @@ class Unsatisfied(Resolution):
 
 class ConfigSpec(object):
     def __init__(self, variables, layers):
-        self.layers = [StrataLayer] + list(layers or [])
-        self.variables = list(variables or [])
+        self._input_layers = list(layers or [])
+        self.layers = [StrataLayer] + self._input_layers
+
+        self._input_variables = list(variables or [])
 
         ap_vars = [layer._get_autoprovided() for layer in self.layers]
-        self._ap_var_list = list(chain(*ap_vars))
-        self.variables.extend(self._ap_var_list)
-        self.name_var_map = dict([(v.name, v) for v in self.variables])
+        self._autoprovided_variables = list(chain(*ap_vars))
+        self.variables = self._input_variables + self._autoprovided_variables
 
+        self.name_var_map = dict([(v.name, v) for v in self.variables])
         self._compute()
 
     @classmethod
@@ -127,21 +129,15 @@ class ConfigSpec(object):
                  '_default_defer': default_defer}
         return type(name, (BaseConfig,), attrs)
 
-    def _compute(self, requirements=None):
-        # is requirements necessary here?
-        requirements = requirements or []
+    def _compute(self):
         vpm = self.var_provider_map = {}
         vcm = self.var_consumer_map = {}
-        layers = self.layers  # [StrataLayer] + self.layers
-
-        reqs = self.variables
+        layers, variables = self.layers, self.variables
         if DEBUG:
-            to_print = sorted(set([r.name for r in reqs]))
-            if 'config' not in to_print:
-                import pdb;pdb.set_trace()
-            print 'reqs:', to_print
-        name_var_map = dict([(v.name, v) for v in reqs])
-        to_proc = [v.name for v in reqs]
+            print 'reqs:', sorted(set([r.name for r in variables]))
+        name_var_map = dict(self.name_var_map)
+
+        to_proc = [v.name for v in variables]
         unresolved = []
         while to_proc:
             cur_var_name = to_proc.pop()
