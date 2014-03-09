@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import operator
 from argparse import ArgumentParser
 
 from .core import Layer, Provider
@@ -51,9 +52,7 @@ class CLILayer(Layer):
     # TODO
     _autoprovided = ['cli_argparser', 'cli_parsed_args', 'cli_help',
                      'cli_help_summary']
-
-    def __init__(self, desc=None):
-        self.parser_desc = desc
+    _parser_desc = ''
 
     @classmethod
     def _get_provider(cls, var):
@@ -90,7 +89,7 @@ class CLILayer(Layer):
 
     def cli_argparser(self, config):
         # TODO: nargs?
-        prs = ArgumentParser(description=self.parser_desc)
+        prs = ArgumentParser(description=self._parser_desc)
         for var in config._config_spec.variables:
             arg_name, short_arg_name = self._get_cli_arg_names(var)
             if not arg_name and not short_arg_name:
@@ -129,9 +128,15 @@ class CLILayer(Layer):
     def cli_help(self, cli_argparser):
         return cli_argparser.format_help()
 
-####
-# Built-in Layers follow
-####
+"""
+Built-in Layers sandwich user-provided layers, with StrataConfigLayer
+providing the top-level 'config' object representing the instance
+currently being populated, and StrataDefaultLayer handling any
+Variables intrinsic defaults.
+
+StrataConfigLayer is always the first layer and StrataDefaultLayer is
+always the last layer.
+"""
 
 
 class StrataConfigLayer(Layer):
@@ -142,3 +147,17 @@ class StrataConfigLayer(Layer):
 
     def config(self):
         return self._config
+
+
+class StrataDefaultLayer(Layer):
+    _helpstr = 'expects `default_value` to be set on Variable'
+
+    @classmethod
+    def _get_provider(cls, var):
+        if not hasattr(var, 'default_value'):
+            raise NotProvidable(cls, var, cls._helpstr)
+
+        def _get_default_value():
+            return getattr(var, 'default_value')
+
+        return Provider(cls, var.name, _get_default_value)

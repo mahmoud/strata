@@ -57,6 +57,7 @@ class Layer(object):
             func = getattr(cls, vn)
         except AttributeError:
             raise NotProvidable(cls, variable)
+        # TODO: what to do if func not callable (accidental missing underscore)
         return Provider(cls, vn, func)
 
     @classmethod
