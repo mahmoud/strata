@@ -48,7 +48,7 @@ unprovided, and allow other Variables to pass unprovided.
 """
 
 from itertools import chain
-from collections import namedtuple, deque
+from collections import deque
 
 from .core import Layer, DEBUG, Provider
 from .utils import inject
@@ -89,13 +89,6 @@ class Satisfied(Resolution):
 
 class Unsatisfied(Resolution):
     pass
-
-
-# Gonna need a separate env-aware ConfigSpec thing, so as not to make
-# the following too complex. That one will prolly have:
-#     @property
-#     def env_layer_map(self):
-#        return dict([(ls.env, ls.layers) for ls in self.layers])
 
 
 class ConfigSpec(object):
@@ -171,19 +164,6 @@ class ConfigSpec(object):
                 slot_order.append(var_name)
         self.slot_order = slot_order
 
-        savings_map = self._compute_savings_map(vpm, srdm)
-
-        pkm = self.provider_key_map = {}
-        for p in self.all_providers:
-            pkm[p] = p_sortkey(provider=p,
-                               provider_map=vpm,
-                               level_idx_map=dep_indices,
-                               savings_map=savings_map,
-                               consumer_map=vcm)
-
-        sorted_provider_pairs = sorted(pkm.items(), key=lambda x: x[-1])
-        self.sorted_providers = [p[0] for p in sorted_provider_pairs]
-
     @staticmethod
     def _compute_slot_dep_map(var_provider_map, preprovided=None):
         preprovided = preprovided or set()
@@ -212,34 +192,6 @@ class ConfigSpec(object):
                 rdeps.update(cur_rdeps)
             rdep_map[var] = rdeps
         return rdep_map
-
-    @staticmethod
-    def _compute_savings_map(var_provider_map, slot_rdep_map):
-        # aka cost of alternative implementations of a var
-        provider_rdep_map = {}
-        stack_provider_rdep_map = {}
-        provider_savings = {}
-        for var, providers in var_provider_map.items():
-            for p in providers:
-                deps = p.dep_names
-                rdep_sets = [slot_rdep_map.get(d, set()) for d in deps]
-                rdep_sets.append(set(deps))
-                p_rdeps = set.union(*rdep_sets)
-                provider_rdep_map[p] = p_rdeps
-                provider_savings[p] = set()
-                sprd_list = stack_provider_rdep_map.setdefault(var, [])
-                if sprd_list:
-                    for prev_p, prev_rdeps in sprd_list:
-                        provider_savings[prev_p].update(p_rdeps)
-                sprd_list.append((p, p_rdeps))
-        return provider_savings
-
-
-def _get_consumer_depth(name, vcm):
-    to_proc = list(vcm.get(name, []))
-    if not to_proc:
-        return 1
-    return max([_get_consumer_depth(cn, vcm) for cn in to_proc]) + 1
 
 
 class ConfigProcessor(object):
@@ -424,61 +376,22 @@ class BaseConfig(object):
         self.__dict__.update(self._result_map)
 
     def _process(self):
-        req_names = set([v.name for v in self._requirements])
-
         self._config_proc = ConfigProcessor(self)  # TODO: make type pluggable
+        self._pre_process()
 
         self._config_proc.process()
         self._result_map = self._config_proc.name_value_map
         self._provider_results = self._config_proc.provider_result_map
+
+        req_names = set([v.name for v in self._requirements])
         self._unresolved = req_names - set(self._result_map)
 
         if self._unresolved:
             sorted_unres = sorted(self._unresolved)
             raise ConfigException('could not resolve: %r' % sorted_unres)
         if DEBUG:
-            print self._pstate
+            print self._config_proc
         self._post_process()
-
-
-# ProviderSortKey
-PSK = namedtuple('PSK', 'slot_idx, layer_idx, agg_dep savings cons_c arg_c char_c')
-
-
-def p_sortkey(provider, provider_map, level_idx_map, savings_map=None,
-              consumer_map=None):
-    """
-    priority:
-
-    * preserve layer order (required)
-    * in dependency-satisfaction order (required)
-    * savings (i.e., highly-dependent alternatives)
-    * many consumers
-    * few arguments
-    * short name?
-
-    'savings' enables sorting fulfillment order such that a variable's
-    provisioning would eliminate the most references to other variables
-    (pruning), i.e., the next item whose downstream alternatives have a
-    large number of dependencies.
-    """
-    p = provider
-    savings_map = savings_map or {}
-    consumer_map = consumer_map or {}
-    var_stack = provider_map[p.var_name]
-    layer_idx = var_stack.index(p)
-    level_idx = level_idx_map[p.var_name]
-
-    max_dep = max([level_idx_map[d] + 1 for d in p.dep_names] or [0])
-    #slot_idx = max_dep - level_idx
-
-    upstack_dep_lists = [up.dep_names for up in var_stack[:layer_idx]]
-    upstack_dep_set = set(sum(upstack_dep_lists, ()))
-    agg_dep = max_dep + len(upstack_dep_set) + layer_idx
-    savings = len(savings_map.get(p, []))
-    consumer_c = len(consumer_map.get(p.var_name, []))
-    arg_c = len(p.dep_names)
-    return PSK(level_idx, layer_idx, agg_dep, -savings, -consumer_c, arg_c, len(p.var_name))
 
 
 def toposort(dep_map):
