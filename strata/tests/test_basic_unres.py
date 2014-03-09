@@ -2,7 +2,7 @@
 
 from strata import Layer, ConfigSpec, Variable
 from strata.core import ez_vars  # TODO
-from strata.config import UnresolvedDependency
+from strata.errors import UnresolvedDependency, DependencyCycle
 
 
 class TriviallyMissingLayer(Layer):
@@ -40,3 +40,16 @@ def test_unmeetable_requirements():
         assert type(e) is UnresolvedDependency
         return
     assert False, 'should have raised an UnresolvedDependency'
+
+
+def test_direct_dep_cycle():
+    class CycleLayer(Layer):
+        def var_a(self, var_a):
+            return None
+    layers = [CycleLayer]
+    try:
+        ConfigSpec(ez_vars(layers), layers)
+    except Exception as e:
+        assert type(e) is DependencyCycle
+        return
+    assert False, 'should have raised a DependencyCycle'
