@@ -256,8 +256,6 @@ class ConfigProcessor(object):
                 to_proc.appendleft(cp)  # repushing current
                 for dep_name in unsat_deps:
                     if (len(nrm.get(dep_name, [])) >= len(bpm[dep_name])):
-                        # TODO error message
-                        # TODO try default
                         msg = self._build_error(dep_name)
                         raise ValueError(msg)
                     to_proc.extendleft(bpm[dep_name])
@@ -345,6 +343,7 @@ class ConfigProcessor(object):
 class BaseConfig(object):
     _config_spec = None
     _default_defer = False
+    _config_proc_type = ConfigProcessor
 
     def __init__(self, **kwargs):
         self._deferred = kwargs.pop('_defer', self._default_defer)
@@ -366,7 +365,7 @@ class BaseConfig(object):
         self.__dict__.update(self._result_map)
 
     def _process(self):
-        self._config_proc = ConfigProcessor(self)  # TODO: make type pluggable
+        self._config_proc = self._config_proc_type(config=self)
         self._pre_process()
 
         self._config_proc.process()
