@@ -43,8 +43,6 @@ unprovided, and allow other Variables to pass unprovided.
 * TODO: die on provided values that don't validate or continue on to
   next provider?
 
-
-
 """
 
 from itertools import chain
@@ -185,7 +183,9 @@ class ConfigSpec(object):
             while to_proc:
                 i += 1  # TODO: better circdep handlin
                 if i > 50:
-                    raise DependencyCycle('circular deps, I think: %r' % var)
+                    msg = ('dependency cycle: %r recursively depends on %r'
+                           % (var, sorted(rdeps)))
+                    raise DependencyCycle(msg)
                 cur = to_proc.pop()
                 cur_rdeps = dep_map.get(cur, [])
                 to_proc.extend([c for c in cur_rdeps if c not in to_proc])

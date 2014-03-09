@@ -53,3 +53,23 @@ def test_direct_dep_cycle():
         assert type(e) is DependencyCycle
         return
     assert False, 'should have raised a DependencyCycle'
+
+
+def test_indirect_dep_cycle():
+    class CycleLayer(Layer):
+        def var_a(self):
+            pass
+
+        def var_b(self, var_a, var_c):
+            pass
+
+        def var_c(self, var_b):
+            pass
+
+    layers = [CycleLayer]
+    try:
+        ConfigSpec(ez_vars(layers), layers)
+    except Exception as e:
+        assert type(e) is DependencyCycle
+        return
+    assert False, 'should have raised a DependencyCycle'
