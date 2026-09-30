@@ -45,7 +45,7 @@ dev = [
 ]
 
 [tool.flit.sdist]
-include = ["strata/tests/", "tox.ini", "LICENSE", "README.md", "CHANGELOG.md", "docs/"]
+include = ["strata/tests/", "tox.ini", "LICENSE", "README.md", "CHANGELOG.md", "ARCHITECTURE.md", "docs/"]
 
 [tool.pytest.ini_options]
 testpaths = ["strata/tests"]
