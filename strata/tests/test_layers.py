@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from strata import Variable, ConfigSpec, ConfigException
+from strata import Variable, ConfigSpec, ConfigException, MissingValue
 from strata.layers import CLILayer, EnvVarLayer, KwargLayer
 
 
@@ -45,6 +45,16 @@ def test_env_var_layer(monkeypatch):
         Config()
     assert 'api_key' in str(exc_info.value)
     assert 'STRATA_TEST_API_KEY' in str(exc_info.value)
+
+
+def test_env_var_layer_unset_raises_missing_value(monkeypatch):
+    monkeypatch.delenv('STRATA_TEST_API_KEY', raising=False)
+    provider = EnvVarLayer._get_provider(ApiKey)
+
+    with pytest.raises(MissingValue) as exc_info:
+        provider.func()
+    assert 'STRATA_TEST_API_KEY' in str(exc_info.value)
+
 
 
 def test_cli_layer_is_cli_arg_and_count(monkeypatch):
