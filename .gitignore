@@ -48,3 +48,14 @@ nosetests.xml
 
 # Vim
 *.swp
+
+# secrets / local
+.env
+.venv/
+
+# tooling caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage.*

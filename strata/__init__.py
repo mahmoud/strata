@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from .core import Variable, Layer, Provider
 from .config import ConfigSpec

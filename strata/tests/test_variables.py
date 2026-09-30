@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from strata import Variable, Layer, ConfigSpec
 from strata.validators import Integer, Float

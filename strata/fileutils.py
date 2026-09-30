@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 # TODO: consider more than the lower 9 bits
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from strata import Layer, ConfigSpec, Variable
 from strata.core import ez_vars  # TODO

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import sys  # TODO: haaaack
 from os.path import abspath, dirname as dn

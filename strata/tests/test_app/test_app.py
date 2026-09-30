@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 An attempt at creating a somewhat holistic application configuration.

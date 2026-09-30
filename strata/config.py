@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 # TODO: raise exception on **kwarg usage in Provider?
