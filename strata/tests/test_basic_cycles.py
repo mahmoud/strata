@@ -1,4 +1,6 @@
 
+import pytest
+
 from strata import Layer, ConfigSpec
 from strata.core import ez_vars  # TODO
 from strata.errors import DependencyCycle
@@ -33,34 +35,25 @@ class MutualCycleLayerTwo(Layer):
 def test_self_cycle():
     layers = [SelfCycleLayer]
     variables = ez_vars(layers)
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(variables, layers)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raise a DependencyCycle'
+    assert exc_info.type is DependencyCycle
 
 
 def test_self_mutual_cycle():
     layerset = [SelfMutualCycleLayer]
     variables = ez_vars(layerset)
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(variables, layerset)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raise a DependencyCycle'
+    assert exc_info.type is DependencyCycle
 
 
 def test_mutual_cycle():
     layers = [MutualCycleLayerOne, MutualCycleLayerTwo]
     variables = ez_vars(layers)
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(variables, layers)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raise a DependencyCycle'
+    assert exc_info.type is DependencyCycle
 
 
 def test_masking_self_cycle():
@@ -71,9 +64,6 @@ def test_masking_self_cycle():
 
     layers = [MaskingLayer, SelfCycleLayer]
     variables = ez_vars(layers)
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(variables, layers)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raise a DependencyCycle'
+    assert exc_info.type is DependencyCycle

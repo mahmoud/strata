@@ -4,7 +4,7 @@ import types
 from boltons.strutils import camel2under, under2camel
 
 from .utils import get_arg_names
-from .errors import MissingValue, ProviderError, NotProvidable
+from .errors import ProviderError, NotProvidable
 
 
 class VariableMeta(type):
@@ -28,12 +28,6 @@ class Variable(metaclass=VariableMeta):
     name = None
     validator = None
 
-    def get_default(self):
-        try:
-            return self.default
-        except AttributeError:
-            raise MissingValue('no default specified for: %s' % self.name)
-
     def process_value(self, value):
         if self.validator:
             return self.validator(value)
@@ -47,7 +41,7 @@ class Layer:
         try:
             func = getattr(cls, vn)
         except AttributeError:
-            raise NotProvidable(cls, variable)
+            raise NotProvidable(cls, variable) from None
         if not callable(func):
             raise NotProvidable(cls, variable, f'{vn!r} is not callable')
         return Provider(cls, vn, func)
@@ -184,6 +178,7 @@ def autoprovide(*args, **kwargs):
              'summary': kwargs.pop('summary', None)}
     if kwargs:
         raise TypeError('got unexpected keyword arguments: %r' % list(kwargs))
+    attrs = {k: v for k, v in attrs.items() if v is not None}
 
     def autoprovide_attr_assigner(func):
         variable = func2variable(func, **attrs)

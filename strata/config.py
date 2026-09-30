@@ -51,6 +51,7 @@ from .core import Provider
 from .utils import inject
 from .errors import (ConfigException,
                      LayerError,
+                     MissingValue,
                      NotProvidable,
                      DependencyCycle,
                      UnresolvedDependency)
@@ -160,7 +161,7 @@ class ConfigSpec:
     def _compute_rdep_map(dep_map):
         "compute recursive dependency map"
         rdep_map = {}
-        for var, slot_deps in dep_map.items():
+        for var in dep_map:
             to_proc, rdeps, i = [var], set(), 0
             while to_proc:
                 i += 1  # TODO: better circdep handlin
@@ -234,7 +235,9 @@ class ConfigProcessor:
         bpm, prm = self.bound_provider_map, self.provider_result_map
         nrm, nvm = self.name_result_map, self.name_value_map
 
-        to_proc = deque(chain(*[bpm[var_name] for var_name in self.req_names]))
+        # deterministic layer-order worklist: for each required variable,
+        # its providers in layer order (spec.variables order, not a set)
+        to_proc = deque(chain(*[bpm[v.name] for v in self.requirements]))
         while to_proc:
             cp = to_proc.popleft()
             if cp in prm:
@@ -243,12 +246,17 @@ class ConfigProcessor:
                 continue  # already satisfied
             unsat_deps = [dep for dep in cp.dep_names if dep not in nvm]
             if unsat_deps:
+                exhausted = [dep for dep in unsat_deps
+                             if len(nrm.get(dep, [])) >= len(bpm[dep])]
+                if exhausted:
+                    # every provider of a dependency failed: this provider
+                    # is unsatisfied and the next layer gets its turn
+                    self.unsatisfy(cp, MissingValue(self._build_error(exhausted[0])))
+                    continue
                 to_proc.appendleft(cp)  # repushing current
                 for dep_name in unsat_deps:
-                    if (len(nrm.get(dep_name, [])) >= len(bpm[dep_name])):
-                        msg = self._build_error(dep_name)
-                        raise ConfigException(msg)
-                    to_proc.extendleft(bpm[dep_name])
+                    # extendleft reverses; keep the dep's layer order intact
+                    to_proc.extendleft(reversed(bpm[dep_name]))
                 continue
             try:
                 value = inject(cp.func, nvm)
@@ -329,7 +337,7 @@ class ConfigProcessor:
                         val = '-'
                 cur_row.append(val)
             lol.append(cur_row)
-        return Table(lol)
+        return Table(lol[1:], headers=lol[0])
 
 
 class BaseConfig:
@@ -364,7 +372,9 @@ class BaseConfig:
         self._result_map = self._config_proc.name_value_map
         self._provider_results = self._config_proc.provider_result_map
 
-        req_names = {v.name for v in self._config_spec.variables}
+        # autoprovided variables (e.g. cli_help, toml_config_data) are
+        # attempted but not required; only the spec's input variables are
+        req_names = {v.name for v in self._config_spec._input_variables}
         self._unresolved = req_names - set(self._result_map)
 
         if self._unresolved:

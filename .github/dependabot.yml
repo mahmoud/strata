@@ -1,0 +1,42 @@
+version: 2
+
+updates:
+  # Actions are hash-pinned with a trailing `# vX.Y.Z` comment; Dependabot
+  # updates both the hash and the comment. One group, so a round of bumps is
+  # a single PR instead of seven.
+  #
+  # Do NOT add `update-types` here to split majors into their own PR. Group
+  # claiming happens on `patterns` alone and `update-types` filters *after*
+  # the claim, so a `patterns: ["*"]` group marks every action handled and
+  # the filtered-out majors are dropped entirely -- they do not fall through
+  # to individual PRs, and a second wildcard group only logs "already handled
+  # by a previous group". Verified against the update-job logs, 2026-08-01.
+  # To defer one risky bump, comment `@dependabot ignore <dep> <version>` on
+  # the PR; the group rebuilds without it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
+
+  # uv.lock pins the dev toolchain only -- the runtime floors (`boltons>=20.0.0`,
+  # `tomli>=2` on 3.10) stay floors, as a library's runtime dependencies
+  # should. The lock is verified on every push
+  # by the `Lockfile` job in tests.yml, so these PRs land against a real
+  # check. Grouped for the same reason as the actions above, and with the same
+  # `update-types` caveat: do not add one.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      dev-tools:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: chore

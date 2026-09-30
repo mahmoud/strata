@@ -1,0 +1,80 @@
+name: Tests
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "*.rst"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "*.rst"
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Linux, python: "3.14", os: ubuntu-latest, tox: py314 }
+          - { name: Windows, python: "3.14", os: windows-latest, tox: py314 }
+          - { name: Mac, python: "3.14", os: macos-latest, tox: py314 }
+          - { name: "3.13", python: "3.13", os: ubuntu-latest, tox: py313 }
+          - { name: "3.12", python: "3.12", os: ubuntu-latest, tox: py312 }
+          - { name: "3.11", python: "3.11", os: ubuntu-latest, tox: py311 }
+          - { name: "3.10", python: "3.10", os: ubuntu-latest, tox: py310 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+      - run: uvx --with tox-uv tox -e ${{ matrix.tox }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uvx --with tox-uv tox -e lint
+
+  # Coverage floor (`fail_under` in pyproject.toml) is enforced here, on one
+  # interpreter, so a shortfall fails the build without a third-party upload.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - run: uvx --with tox-uv tox -e py314,coverage-report
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hynek/build-and-inspect-python-package@2abe76da66d0a6a4a227101f9348ee855797cfa5 # v3.0.1
+
+  # The test matrix above resolves dev dependencies fresh, on purpose, so
+  # upstream breakage surfaces early. This job is the counterweight: it proves
+  # uv.lock is still coherent with pyproject.toml and that the locked
+  # environment actually works, which is what makes committing the lock worth
+  # anything. `uv sync --locked` fails rather than silently relocking.
+  lockfile:
+    name: Lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uv sync --locked --python 3.12
+      - run: uv run --no-sync pytest strata/tests -q

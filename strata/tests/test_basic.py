@@ -35,7 +35,7 @@ class SecondLayer(Layer):
 
 class ThirdLayer(Layer):
     def var_a(self, var_e):
-        assert False, 'var_a should have been provided by FirstLayer'
+        raise AssertionError('var_a should have been provided by FirstLayer')
 
     def var_e(self):
         return -1

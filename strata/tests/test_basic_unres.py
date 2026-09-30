@@ -1,4 +1,6 @@
 
+import pytest
+
 from strata import Layer, ConfigSpec, Variable
 from strata.core import ez_vars  # TODO
 from strata.errors import UnresolvedDependency, DependencyCycle
@@ -12,12 +14,9 @@ class TriviallyMissingLayer(Layer):
 def test_trivially_missing():
     layers = [TriviallyMissingLayer]
     variables = ez_vars(layers)
-    try:
+    with pytest.raises(UnresolvedDependency) as exc_info:
         ConfigSpec(variables, layers)
-    except Exception as e:
-        assert type(e) is UnresolvedDependency
-        return
-    assert False, 'should have raised an UnresolvedDependency'
+    assert exc_info.type is UnresolvedDependency
 
 
 def test_unmeetable_requirements():
@@ -33,12 +32,9 @@ def test_unmeetable_requirements():
 
     layers = [OKLayer]
     variables = ez_vars(layers) + [UnprovidedVariable]
-    try:
+    with pytest.raises(UnresolvedDependency) as exc_info:
         ConfigSpec(variables, layers)
-    except Exception as e:
-        assert type(e) is UnresolvedDependency
-        return
-    assert False, 'should have raised an UnresolvedDependency'
+    assert exc_info.type is UnresolvedDependency
 
 
 def test_direct_dep_cycle():
@@ -46,12 +42,9 @@ def test_direct_dep_cycle():
         def var_a(self, var_a):
             return None
     layers = [CycleLayer]
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(ez_vars(layers), layers)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raised a DependencyCycle'
+    assert exc_info.type is DependencyCycle
 
 
 def test_indirect_dep_cycle():
@@ -66,9 +59,6 @@ def test_indirect_dep_cycle():
             pass
 
     layers = [CycleLayer]
-    try:
+    with pytest.raises(DependencyCycle) as exc_info:
         ConfigSpec(ez_vars(layers), layers)
-    except Exception as e:
-        assert type(e) is DependencyCycle
-        return
-    assert False, 'should have raised a DependencyCycle'
+    assert exc_info.type is DependencyCycle

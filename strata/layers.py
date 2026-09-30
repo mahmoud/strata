@@ -217,6 +217,6 @@ class StrataDefaultLayer(Layer):
             raise NotProvidable(cls, var, cls._helpstr)
 
         def _get_default_value():
-            return getattr(var, 'default_value')
+            return var.default_value
 
         return Provider(cls, var.name, _get_default_value)
