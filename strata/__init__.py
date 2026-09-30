@@ -1,6 +1,6 @@
 """strata: layered, dependency-resolving application configuration."""
 
-__version__ = '26.0.0dev'
+__version__ = '26.0.0'
 
 from .core import Variable, Layer, Provider
 from .config import ConfigSpec
