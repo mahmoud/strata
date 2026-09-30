@@ -1,7 +1,7 @@
 
 from strata import Layer, ConfigSpec
 from strata.core import ez_vars  # TODO
-from strata.config import DependencyCycle
+from strata.errors import DependencyCycle
 
 
 class SelfCycleLayer(Layer):

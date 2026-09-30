@@ -27,7 +27,7 @@ class ServerHost(Variable):
 class ServerPort(Variable):
     cli_arg_name = 'port'
     is_config_kwarg = True
-    json_config_key = 'port'
+    config_key = 'server.port'
 
 
 class SecretKey(Variable):

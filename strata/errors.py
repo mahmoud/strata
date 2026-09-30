@@ -16,8 +16,14 @@ class InvalidValue(ConfigValueError):
     pass
 
 
-#class LayerError(ConfigException, TypeError):
-#    pass
+class LayerError(ConfigException):
+    """
+    Raised by a Layer's provider to abort Config processing outright,
+    instead of being recorded as Unsatisfied and falling through to the
+    next Layer (which is what any other exception does). Use it for
+    problems that are never fixable by a lower Layer, e.g. a malformed
+    config file.
+    """
 
 
 class ProviderError(ConfigException, TypeError):
@@ -35,7 +41,7 @@ class NotProvidable(ConfigException):
                                                variable_type.__name__,)
         if details:
             msg += ': %s' % (details,)
-        super(NotProvidable, self).__init__(msg)
+        super().__init__(msg)
 
 
 class ConfigSpecException(Exception):

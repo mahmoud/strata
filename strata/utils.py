@@ -1,73 +1,27 @@
-
-import re
-import types
 import inspect
-from inspect import ArgSpec
-
-# TODO: use boltons
-
-_camel2under_re = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
-
-
-def camel2under(string):
-    return _camel2under_re.sub(r'_\1', string).lower()
-
-
-def under2camel(string):
-    return ''.join(w.capitalize() or '_' for w in string.split('_'))
-
-
-def getargspec(f):
-    # TODO: support partials
-    if not inspect.isfunction(f) and not inspect.ismethod(f) \
-            and hasattr(f, '__call__'):
-        f = f.__call__  # callable objects
-
-    if isinstance(getattr(f, '_argspec', None), ArgSpec):
-        return f._argspec  # we'll take your word for it; good luck, lil buddy.
-
-    ret = inspect.getargspec(f)
-
-    if not all([isinstance(a, basestring) for a in ret.args]):
-        raise TypeError('does not support anonymous tuple arguments '
-                        'or any other strange args for that matter.')
-    if isinstance(f, types.MethodType):
-        ret = ret._replace(args=ret.args[1:])  # throw away "self"
-    return ret
 
 
 def get_arg_names(f, only_required=False):
-    arg_names, _, _, defaults = getargspec(f)
-
-    if only_required and defaults:
-        arg_names = arg_names[:-len(defaults)]
-
-    return tuple(arg_names)
+    """Positional parameter names of *f*; bound methods drop ``self``."""
+    try:
+        sig = inspect.signature(f)
+    except (TypeError, ValueError) as e:
+        raise TypeError(f'unsupported provider callable: {f!r}') from e
+    names = []
+    for p in sig.parameters.values():
+        if p.kind not in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD):
+            continue
+        if only_required and p.default is not p.empty:
+            continue
+        names.append(p.name)
+    return tuple(names)
 
 
 def inject(f, injectables):
-    arg_names, _, kw_name, defaults = getargspec(f)
-    all_kwargs = dict(reversed(zip(reversed(arg_names),
-                                   reversed(defaults or []))),
-                      **injectables)
-    if kw_name:
-        return f(**all_kwargs)
-    kwargs = dict([(k, v) for k, v in all_kwargs.items() if k in arg_names])
+    """Call *f* with the subset of *injectables* its parameters name."""
+    sig = inspect.signature(f)
+    accepts_kwargs = any(p.kind is p.VAR_KEYWORD for p in sig.parameters.values())
+    if accepts_kwargs:
+        return f(**injectables)
+    kwargs = {k: v for k, v in injectables.items() if k in sig.parameters}
     return f(**kwargs)
-
-
-def make_sentinel(name='_MISSING', var_name=None):
-    class Sentinel(object):
-        def __init__(self):
-            self.name = name
-            self.var_name = var_name
-        def __repr__(self):
-            if self.var_name:
-                return self.var_name
-            return '%s(%r)' % (self.__class__.__name__, self.name)
-        if var_name:
-            def __reduce__(self):
-                return self.var_name
-        def __nonzero__(self):
-            return False
-    return Sentinel()

@@ -47,18 +47,19 @@ unprovided, and allow other Variables to pass unprovided.
 from itertools import chain
 from collections import deque
 
-from .core import DEBUG, Provider
+from .core import Provider
 from .utils import inject
 from .errors import (ConfigException,
+                     LayerError,
                      NotProvidable,
                      DependencyCycle,
                      UnresolvedDependency)
 from .layers import StrataConfigLayer, StrataDefaultLayer
 
-from .tableutils import Table
+from boltons.tableutils import Table
 
 
-class Resolution(object):
+class Resolution:
     def __init__(self, by, value=None):
         self.by = by
         self.value = value
@@ -70,7 +71,7 @@ class Resolution(object):
 
 class Pruned(Resolution):
     def __init__(self, by=None, value=None):
-        return super(Pruned, self).__init__(by, value)
+        super().__init__(by, value)
 
 
 class Satisfied(Resolution):
@@ -81,7 +82,7 @@ class Unsatisfied(Resolution):
     pass
 
 
-class ConfigSpec(object):
+class ConfigSpec:
     def __init__(self, variables, layers):
         self._input_layers = list(layers or [])
         self.layers = ([StrataConfigLayer]
@@ -94,17 +95,8 @@ class ConfigSpec(object):
         self._autoprovided_variables = list(chain(*ap_vars))
         self.variables = self._input_variables + self._autoprovided_variables
 
-        self.name_var_map = dict([(v.name, v) for v in self.variables])
+        self.name_var_map = {v.name: v for v in self.variables}
         self._compute()
-
-    @classmethod
-    def from_modules(cls, modules):
-        """find all variables/layers in the modules.
-        One ConfigSpec per layer list.
-
-        TODO: except/warn on overwrites/unused types?
-        """
-        return cls([], [])
 
     def make_config(self, name=None, default_defer=False):
         name = name or 'Config'
@@ -184,11 +176,11 @@ class ConfigSpec(object):
         return rdep_map
 
 
-class ConfigProcessor(object):
-    def __init__(self, config, debug=DEBUG):
+class ConfigProcessor:
+    def __init__(self, config, debug=False):
         self.config = config
         self.requirements = self.config._config_spec.variables
-        self.req_names = set([v.name for v in self.requirements])
+        self.req_names = {v.name for v in self.requirements}
 
         self.name_value_map = {}
         self.name_satisfier_map = {}
@@ -228,15 +220,14 @@ class ConfigProcessor(object):
         bpl.extend(chain(*bpm.values()))
 
     def _build_error(self, var_name):
-        # provide -> satisfy?
-        consumers = self.config._config_spec.var_consumer_map[var_name]
+        consumers = self.config._config_spec.var_consumer_map.get(var_name, [])
         consumer_names = [v.var_name for v in consumers]
-        msg = ('could not provide %r, required by %r, '
-               'encountered the following errors:'
-               % (var_name, consumer_names))
-        lines = [msg]
+        msg = 'could not provide %r' % var_name
+        if consumer_names:
+            msg += ', required by %r' % consumer_names
+        lines = [msg + ', encountered the following errors:']
         lines.extend([' - %s: %r' % (e.by.layer_type.__name__, e.value)
-                      for e in self.name_result_map[var_name]])
+                      for e in self.name_result_map.get(var_name, [])])
         return '\n'.join(lines)
 
     def process(self):
@@ -256,11 +247,13 @@ class ConfigProcessor(object):
                 for dep_name in unsat_deps:
                     if (len(nrm.get(dep_name, [])) >= len(bpm[dep_name])):
                         msg = self._build_error(dep_name)
-                        raise ValueError(msg)
+                        raise ConfigException(msg)
                     to_proc.extendleft(bpm[dep_name])
                 continue
             try:
                 value = inject(cp.func, nvm)
+            except LayerError:
+                raise
             except Exception as e:
                 self.unsatisfy(cp, e)
             else:
@@ -290,13 +283,13 @@ class ConfigProcessor(object):
     def prune(self, provider, value):
         result = Pruned(by=provider, value=value)
         if self._debug:
-            print ' == ', result
+            print(' == ', result)
         return self.register_result(provider, result)
 
     def unsatisfy(self, provider, exception):
         result = Unsatisfied(by=provider, value=exception)
         if self._debug:
-            print ' - ', result
+            print(' - ', result)
         return self.register_result(provider, result)
 
     def register_result(self, provider, result):
@@ -339,7 +332,7 @@ class ConfigProcessor(object):
         return Table(lol)
 
 
-class BaseConfig(object):
+class BaseConfig:
     _config_spec = None
     _default_defer = False
     _config_proc_type = ConfigProcessor
@@ -371,35 +364,17 @@ class BaseConfig(object):
         self._result_map = self._config_proc.name_value_map
         self._provider_results = self._config_proc.provider_result_map
 
-        req_names = set([v.name for v in self._config_spec.variables])
+        req_names = {v.name for v in self._config_spec.variables}
         self._unresolved = req_names - set(self._result_map)
 
         if self._unresolved:
             sorted_unres = sorted(self._unresolved)
-            raise ConfigException('could not resolve: %r' % sorted_unres)
-        if DEBUG:
-            print self._config_proc
+            lines = ['could not resolve: %r' % sorted_unres]
+            lines.extend([self._config_proc._build_error(n) for n in sorted_unres])
+            raise ConfigException('\n'.join(lines))
+        if self._config_proc._debug:
+            print(self._config_proc)
         self._post_process()
-
-
-def toposort(dep_map):
-    "expects a dict of {item: set([deps])}"
-    ret, dep_map = [], dict(dep_map)
-    if not dep_map:
-        return []
-    extras = set.union(*dep_map.values()) - set(dep_map)
-    dep_map.update([(k, set()) for k in extras])
-    remaining = dict(dep_map)
-    while remaining:
-        cur = set([item for item, deps in remaining.items() if not deps])
-        if not cur:
-            break
-        ret.append(cur)
-        remaining = dict([(item, deps - cur) for item, deps
-                          in remaining.items() if item not in cur])
-    if remaining:
-        raise ValueError('unresolvable dependencies: %r' % remaining)
-    return ret
 
 
 def jit_toposort(dep_map):

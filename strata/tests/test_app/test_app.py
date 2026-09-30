@@ -28,7 +28,7 @@ _DEFAULT_LINKS_FILE_PATH = os.path.join(_CUR_PATH, 'links.txt')
 from strata import Layer, ConfigSpec, ConfigException
 from strata.layers import CLILayer, KwargLayer, EnvVarLayer
 
-from app_vars import VAR_LIST
+from .app_vars import VAR_LIST
 
 
 class DevDefaultLayer(Layer):

@@ -1,5 +1,4 @@
-
-import common
+import sys
 
 from strata.core import Variable, ez_vars
 from strata.config import ConfigSpec
@@ -19,29 +18,16 @@ class VarTwo(Variable):
 def get_cli_config_spec(layers=None):
     layers = layers or [KwargLayer, CLILayer]
     variables = [VarOne, VarTwo] + ez_vars(layers)
-    cspec = ConfigSpec(variables, layers)
-    return cspec
+    return ConfigSpec(variables, layers)
 
 
-def get_cli_config(req_var_names=None):
-    req_var_names = req_var_names or ['var_one', 'var_two', 'cli_help']
-    cspec = get_cli_config_spec()
-    req_vars = [v for v in cspec.variables if v.name in req_var_names]
-    return cspec.make_config()
-
-
-def test_cli(add_two_to_argv=True):
-    if add_two_to_argv:
-        # laziness: for combined cli testing and py.test reuse
-        import sys
-        sys.argv.extend(['--two', 'testingMEH'])
-    TestConfig = get_cli_config()
+def test_cli(monkeypatch):
+    monkeypatch.setattr(sys, 'argv', ['prog', '--two', 'testingMEH'])
+    TestConfig = get_cli_config_spec().make_config()
     config = TestConfig(var_one='var_one is #1! USA! USA!')
-    repr(config)
-    print config.cli_help
-    print config.var_one, config.var_two
-    return config
-
-
-if __name__ == '__main__':
-    test_cli(False)
+    assert 'var_one' in repr(config)
+    assert config.var_one == 'var_one is #1! USA! USA!'
+    assert config.var_two == 'testingMEH'
+    assert '--one' in config.cli_help
+    assert 'the best variable' in config.cli_help
+    assert config.cli_help_summary.startswith('usage:')

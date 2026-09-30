@@ -2,12 +2,18 @@
 import os
 from argparse import ArgumentParser
 
-from .core import Layer, Provider
-from .errors import NotProvidable, MissingValue
-from .utils import make_sentinel
+from boltons.typeutils import make_sentinel
+
+from .core import Layer, Provider, Variable
+from .errors import NotProvidable, MissingValue, LayerError
+
+try:
+    import tomllib
+except ImportError:  # Python 3.10
+    import tomli as tomllib
 
 
-_MISSING = make_sentinel()
+_MISSING = make_sentinel('_MISSING')
 
 
 class KwargLayer(Layer):
@@ -55,7 +61,7 @@ class CLILayer(Layer):
     @classmethod
     def _get_provider(cls, var):
         try:
-            return super(CLILayer, cls)._get_provider(var)
+            return super()._get_provider(var)
         except NotProvidable:
             pass
         arg_name, short_arg_name = cls._get_cli_arg_names(var)
@@ -80,7 +86,7 @@ class CLILayer(Layer):
         short_name = getattr(var, 'cli_short_arg_name', None)
         if not (long_name or short_name):
             if is_cli_arg:
-                long_name = var.var_name
+                long_name = var.name
             else:
                 long_name = None
         return long_name, short_name
@@ -107,7 +113,7 @@ class CLILayer(Layer):
                 if action not in self._allowed_actions:
                     msg = ('unrecognized CLI action: %r (expected one of %r)' %
                            (action, self._allowed_actions))
-                    raise Exception(msg)
+                    raise ValueError(msg)
             if const is not _MISSING and action != 'count':
                 kwargs['action'] = '%s_const' % action
                 kwargs['const'] = const
@@ -125,6 +131,60 @@ class CLILayer(Layer):
 
     def cli_help(self, cli_argparser):
         return cli_argparser.format_help()
+
+
+class ConfigFilePath(Variable):
+    """Path to the TOML config file read by TOMLFileLayer. Pass it as a
+    Config kwarg or ``--config-file``, or subclass to add a default::
+
+        class AppConfigFilePath(ConfigFilePath):
+            name = 'config_file_path'  # subclasses get a new name otherwise
+            default_value = '/etc/app/config.toml'
+    """
+    is_config_kwarg = True
+    cli_arg_name = 'config-file'
+
+
+class TOMLFileLayer(Layer):
+    """Provides Variables with `config_key` (dotted path, e.g. 'server.port')
+    or `is_config_key = True` (key = Variable.name at top level) from the
+    TOML document at the `config_file_path` Variable."""
+    _helpstr = 'expects `config_key` or `is_config_key` to be set on Variable'
+    _autoprovided = ['toml_config_data']
+
+    @classmethod
+    def _get_provider(cls, var):
+        try:
+            return super()._get_provider(var)
+        except NotProvidable:
+            pass
+        key = getattr(var, 'config_key', None)
+        if not key and getattr(var, 'is_config_key', False):
+            key = var.name
+        if not key:
+            raise NotProvidable(cls, var, cls._helpstr)
+
+        def _get_toml_value(toml_config_data):
+            cur = toml_config_data
+            for part in key.split('.'):
+                if not isinstance(cur, dict) or part not in cur:
+                    raise MissingValue(f'no value at {key!r} in config file'
+                                       f' (for {var.__name__})')
+                cur = cur[part]
+            return cur
+
+        return Provider(cls, var.name, _get_toml_value)
+
+    def toml_config_data(self, config_file_path):
+        try:
+            with open(config_file_path, 'rb') as f:
+                return tomllib.load(f)
+        except FileNotFoundError as e:
+            raise MissingValue(f'config file not found: {config_file_path!r}') from e
+        except tomllib.TOMLDecodeError as e:
+            # a broken file is never fixable by a lower layer; abort
+            raise LayerError(f'invalid TOML in {config_file_path!r}: {e}') from e
+
 
 """
 Built-in Layers sandwich user-provided layers, with StrataConfigLayer

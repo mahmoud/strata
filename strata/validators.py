@@ -1,12 +1,12 @@
 
 import os
 
-from .fileutils import FilePerms
+from boltons.fileutils import FilePerms
 
 # TODO: should validators also get a copy of the Variable?
 
 
-class Validator(object):
+class Validator:
     def validate(self, value):
         "implement me"
         return value
@@ -63,22 +63,43 @@ class Float(Validator):
 
 
 class Boolean(Validator):
+    _true_strs = ('true', 'yes', 'on', '1')
+    _false_strs = ('false', 'no', 'off', '0')
+
     def __init__(self, strict=True):
-        pass
-    # non-strict can accept case-insensitive strings
+        # non-strict accepts case-insensitive strings (env vars, CLI, TOML)
+        self.strict = strict
+
+    def validate(self, value):
+        if isinstance(value, bool):
+            return value
+        if not self.strict and isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in self._true_strs:
+                return True
+            if lowered in self._false_strs:
+                return False
+        raise ValueError('expected a boolean, not %r' % (value,))
 
 
 class Choice(Validator):
-    def __init__(self, choices=None, item_type=None):
-        self.choices = choices
+    def __init__(self, choices, item_type=None):
+        self.choices = list(choices)
         self.item_type = item_type
+
+    def validate(self, value):
+        if self.item_type is not None:
+            value = self.item_type(value)
+        if value not in self.choices:
+            raise ValueError('expected one of %r, not %r' % (self.choices, value))
+        return value
 
 
 class List(Validator):
     def __init__(self, item_type=None, list_type=None):
-        item_type = item_type or Validator
-        assert callable(item_type)
-        list_type = list_type or list
+        self.item_type = item_type or Validator()
+        assert callable(self.item_type)
+        self.list_type = list_type or list
 
     def validate(self, value):
         return self.list_type([self.item_type(x) for x in value])

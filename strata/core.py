@@ -1,9 +1,9 @@
+import inspect
+import types
 
-from types import MethodType
+from boltons.strutils import camel2under, under2camel
 
-DEBUG = False
-
-from .utils import under2camel, camel2under, get_arg_names
+from .utils import get_arg_names
 from .errors import MissingValue, ProviderError, NotProvidable
 
 
@@ -15,7 +15,7 @@ class VariableMeta(type):
         if n_attr.startswith('_'):
             msg = 'Variable name cannot start with underscore: %r' % n_attr
             raise TypeError(msg)
-        cls = super(VariableMeta, mcls).__new__(mcls, name, bases, attrs)
+        cls = super().__new__(mcls, name, bases, attrs)
 
         cls.description = getattr(cls, 'description', '') or cls.__doc__ or ''
         default_summary = (cls.description.splitlines() or [''])[0][:60]
@@ -24,9 +24,7 @@ class VariableMeta(type):
         return cls
 
 
-class Variable(object):
-    __metaclass__ = VariableMeta
-
+class Variable(metaclass=VariableMeta):
     name = None
     validator = None
 
@@ -42,13 +40,7 @@ class Variable(object):
         return value
 
 
-class BaseLayer(object):
-    @classmethod
-    def _get_provider(cls, variable):
-        raise NotImplementedError('Layers must implement _get_provider()')
-
-
-class Layer(object):
+class Layer:
     @classmethod
     def _get_provider(cls, variable):
         vn = variable.name
@@ -56,12 +48,9 @@ class Layer(object):
             func = getattr(cls, vn)
         except AttributeError:
             raise NotProvidable(cls, variable)
-        # TODO: what to do if func not callable (accidental missing underscore)
+        if not callable(func):
+            raise NotProvidable(cls, variable, f'{vn!r} is not callable')
         return Provider(cls, vn, func)
-
-    @classmethod
-    def _specialize(cls, prefix=None):
-        pass
 
     @classmethod
     def _get_autoprovided(cls):
@@ -80,7 +69,7 @@ class Layer(object):
                     continue
             except TypeError:
                 pass
-            if isinstance(obj, basestring):
+            if isinstance(obj, str):
                 ap_var_map[obj] = None
             else:
                 unknown_eaps.append(obj)
@@ -95,8 +84,8 @@ class Layer(object):
             try:
                 auto_var = attr._autoprovided_variable
             except AttributeError:
-                if attrname in ap_var_map and isinstance(attr, MethodType):
-                    auto_var = func2variable(attr.im_func)
+                if attrname in ap_var_map and inspect.isfunction(attr):
+                    auto_var = func2variable(attr)
                 else:
                     continue
             ap_var_map[attrname] = auto_var
@@ -105,13 +94,13 @@ class Layer(object):
         if unconverted:
             raise TypeError('unable to resolve %s autoprovided variables: %r'
                             % (cn, unconverted))
-        return ap_var_map.values()
+        return list(ap_var_map.values())
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
 
 
-class Provider(object):
+class Provider:
     """\
     Used internally to represent a single Layer instance's implementation
     of a single Variable. (the intersection of Layer and Variable).
@@ -128,27 +117,31 @@ class Provider(object):
         self.func = func
         try:
             self.dep_names = get_arg_names(self.func)
-        except:
-            raise ProviderError('unsupported provider type: %r' % self.func)
+        except TypeError as e:
+            raise ProviderError('unsupported provider type: %r' % self.func) from e
+        # A plain function defined on the Layer class is an unbound
+        # method: its first positional parameter is ``self``, not a
+        # dependency. get_bound() rebinds it to the Layer instance.
+        # (getattr_static sees through staticmethod/classmethod.)
+        self._is_unbound_method = (
+            inspect.isfunction(func)
+            and inspect.getattr_static(self.layer_type, var_name, None) is func)
+        if self._is_unbound_method:
+            self.dep_names = self.dep_names[1:]
 
     @property
     def is_bound(self):
         return self.layer_inst is not None
 
     def get_bound(self, layer_inst):
-        func, var_name, layer_type = self.func, self.var_name, self.layer_type
-        # first, a sanity check
-        if not isinstance(layer_inst, layer_type):
+        if not isinstance(layer_inst, self.layer_type):
             raise TypeError('expected an instance of %r, not %r'
-                            % (layer_inst, layer_type))
-        # do the actual method rebind (technically sorta the first binding)
-        try:
-            if func.im_self is None and isinstance(layer_inst, func.im_class):
-                func = type(func)(func.im_func, layer_inst, layer_type)
-        except AttributeError:
-            pass
-        p_type = type(self)
-        return p_type(layer_inst, var_name, func)
+                            % (self.layer_type, layer_inst))
+        if self._is_unbound_method:
+            func = types.MethodType(self.func, layer_inst)
+        else:
+            func = self.func
+        return type(self)(layer_inst, self.var_name, func)
 
     def __repr__(self):
         cn = self.__class__.__name__
@@ -156,14 +149,8 @@ class Provider(object):
             layer_cn = self.layer_type.__name__
             func_sig = '%s(%s)' % (self.var_name, ', '.join(self.dep_names))
             return '%s(%s.%s)' % (cn, layer_cn, func_sig)
-        except:
-            return super(Provider, self).__repr__()
-
-
-class FileValue(object):
-    def __init__(self, value, file_path):
-        self.value = value
-        self.file_path = file_path
+        except AttributeError:
+            return super().__repr__()
 
 
 def ez_vars(layers):
@@ -183,10 +170,10 @@ def ez_vars(layers):
 
 def func2variable(func, class_name=None, **kwargs):
     "expects a function, not a bound/unbound method."
-    var_name = func.func_name
+    var_name = func.__name__
     class_name = class_name or under2camel(var_name)
     attrs = dict(kwargs, name=var_name)
-    attrs.setdefault('description', func.func_doc)
+    attrs.setdefault('description', func.__doc__)
     variable = VariableMeta(class_name, (Variable,), attrs)
     return variable
 
@@ -196,7 +183,7 @@ def autoprovide(*args, **kwargs):
              'description': kwargs.pop('description', None),
              'summary': kwargs.pop('summary', None)}
     if kwargs:
-        raise TypeError('got unexpected keyword arguments: %r' % kwargs.keys())
+        raise TypeError('got unexpected keyword arguments: %r' % list(kwargs))
 
     def autoprovide_attr_assigner(func):
         variable = func2variable(func, **attrs)

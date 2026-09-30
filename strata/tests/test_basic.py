@@ -1,6 +1,4 @@
 
-from pprint import pprint
-
 from strata.core import Layer
 from strata.config import ConfigSpec
 
@@ -68,17 +66,11 @@ def test_basic_vars():
     conf_type = get_basic_config()
     conf = conf_type()
     res = conf._result_map
-    expected_keys = set(['var_a', 'var_b', 'var_e',
-                         'var_c', 'var_d', 'config'])
+    expected_keys = {'var_a', 'var_b', 'var_e', 'var_c', 'var_d', 'config'}
     assert set(res.keys()) > expected_keys
     assert res['var_a'] == 0
     assert res['var_b'] == 2
     assert res['var_c'] == 3
     assert res['var_d'] == 4
     assert res['var_e'] == -1
-    pprint(conf)
-    return conf
-
-
-if __name__ == '__main__':
-    test_basic_vars()
+    repr(conf)
