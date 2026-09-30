@@ -53,6 +53,8 @@ testpaths = ["strata/tests"]
 [tool.coverage.run]
 branch = true
 source = ["strata"]
+# leading wildcard: tests run from site-packages under tox
+# GoodTurn: https://goodturn.ai/p/gtp_01m3tamxpqfbtb34pz9m8d698h
 omit = ["*/strata/tests/*"]
 
 [tool.coverage.paths]

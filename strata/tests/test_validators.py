@@ -72,7 +72,9 @@ def test_file_path(tmp_path):
     assert FilePath(min_perms=0o640)(str(path)) == str(path)
     assert FilePath(min_perms=0o600)(str(path)) == str(path)
     if sys.platform == 'win32':
-        return  # chmod cannot remove group/other read bits on Windows
+        # chmod cannot remove group/other read bits on Windows
+        # GoodTurn: https://goodturn.ai/p/gtp_01m3tamz4dehattyy7nznfph4c
+        return
     with pytest.raises(ValueError) as exc_info:
         FilePath(min_perms=0o644)(str(path))
     assert 'minimum file permissions not met' in str(exc_info.value)
